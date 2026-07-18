@@ -19,3 +19,8 @@ frontend/tsconfig.tsbuildinfo
 .DS_Store
 .claude/
 .tmp-*
+
+# 内部规划与进度文档（不入库）
+PLAN.md
+STATUS.md
+SHARED_TASK_NOTES.md
