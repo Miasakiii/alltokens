@@ -1,0 +1,375 @@
+# AllTokens 内置定价表
+# 格式: [provider."model"]
+# 所有价格为 USD / 每百万 token
+# context_window = 模型上下文窗口 (tokens)，0/缺省 = 未知
+# 最后更新: 2026-07
+
+# ════════════════════════════════════════
+# OpenAI
+# ════════════════════════════════════════
+
+[openai."gpt-4o"]
+input = 2.50
+output = 10.00
+cache_read = 1.25
+context_window = 128000
+
+[openai."gpt-4o-mini"]
+input = 0.15
+output = 0.60
+cache_read = 0.075
+context_window = 128000
+
+[openai."o3"]
+input = 2.00
+output = 8.00
+cache_read = 0.50
+context_window = 200000
+
+[openai."o3-mini"]
+input = 1.10
+output = 4.40
+cache_read = 0.275
+context_window = 200000
+
+[openai."o4-mini"]
+input = 1.10
+output = 4.40
+cache_read = 0.275
+context_window = 200000
+
+[openai."gpt-4.1"]
+input = 2.00
+output = 8.00
+cache_read = 0.50
+context_window = 1047576
+
+[openai."gpt-4.1-mini"]
+input = 0.40
+output = 1.60
+cache_read = 0.10
+context_window = 1047576
+
+[openai."gpt-4.1-nano"]
+input = 0.10
+output = 0.40
+cache_read = 0.025
+context_window = 1047576
+
+# ════════════════════════════════════════
+# Anthropic
+# ════════════════════════════════════════
+
+[anthropic."claude-opus-4-20250514"]
+input = 15.00
+output = 75.00
+cache_read = 1.50
+cache_create = 18.75
+context_window = 200000
+
+[anthropic."claude-sonnet-4-20250514"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+cache_create = 3.75
+context_window = 200000
+
+[anthropic."claude-haiku-3.5"]
+input = 0.80
+output = 4.00
+cache_read = 0.08
+cache_create = 1.00
+context_window = 200000
+
+# 简写别名 (有些工具只发模型名前缀)
+[anthropic."claude-sonnet-4"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+cache_create = 3.75
+context_window = 200000
+
+[anthropic."claude-opus-4"]
+input = 15.00
+output = 75.00
+cache_read = 1.50
+cache_create = 18.75
+context_window = 200000
+
+[anthropic."claude-3.5-sonnet"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+cache_create = 3.75
+context_window = 200000
+
+# ════════════════════════════════════════
+# DeepSeek
+# ════════════════════════════════════════
+
+[deepseek."deepseek-chat"]
+input = 0.27
+output = 1.10
+cache_read = 0.07
+context_window = 65536
+
+[deepseek."deepseek-reasoner"]
+input = 0.55
+output = 2.19
+cache_read = 0.14
+context_window = 65536
+
+# ════════════════════════════════════════
+# Qwen (通义千问)
+# ════════════════════════════════════════
+
+[qwen."qwen-max"]
+input = 2.40
+output = 9.60
+context_window = 32768
+
+[qwen."qwen-plus"]
+input = 0.80
+output = 2.00
+context_window = 131072
+
+[qwen."qwen-turbo"]
+input = 0.05
+output = 0.20
+context_window = 1000000
+
+[qwen."qwen-long"]
+input = 0.50
+output = 2.00
+context_window = 10000000
+
+[qwen."qwen-coder-plus"]
+input = 1.50
+output = 6.00
+context_window = 131072
+
+# ════════════════════════════════════════
+# Moonshot (Kimi)
+# ════════════════════════════════════════
+
+[moonshot."moonshot-v1-8k"]
+input = 1.20
+output = 1.20
+context_window = 8192
+
+[moonshot."moonshot-v1-32k"]
+input = 2.40
+output = 2.40
+context_window = 32768
+
+[moonshot."moonshot-v1-128k"]
+input = 6.00
+output = 6.00
+context_window = 131072
+
+# ════════════════════════════════════════
+# MiniMax
+# ════════════════════════════════════════
+
+[minimax."MiniMax-Text-01"]
+input = 1.00
+output = 8.00
+context_window = 1000000
+
+[minimax."abab7-chat"]
+input = 1.00
+output = 8.00
+context_window = 245760
+
+# ════════════════════════════════════════
+# GLM (智谱)
+# ════════════════════════════════════════
+
+[glm."glm-4-plus"]
+input = 5.00
+output = 5.00
+context_window = 131072
+
+[glm."glm-4-flash"]
+input = 0.00
+output = 0.00
+context_window = 131072
+
+[glm."glm-4-long"]
+input = 1.00
+output = 1.00
+context_window = 1000000
+
+[glm."glm-4-air"]
+input = 0.50
+output = 0.50
+context_window = 131072
+
+# ════════════════════════════════════════
+# Volcengine (火山引擎 / 豆包)
+# ════════════════════════════════════════
+
+[volcengine."doubao-1.5-pro-32k"]
+input = 0.80
+output = 2.00
+context_window = 32768
+
+[volcengine."doubao-1.5-lite-32k"]
+input = 0.30
+output = 0.60
+context_window = 32768
+
+[volcengine."doubao-pro-256k"]
+input = 5.00
+output = 9.00
+context_window = 262144
+
+# ════════════════════════════════════════
+# SiliconFlow (硅基流动)
+# ════════════════════════════════════════
+
+[siliconflow."deepseek-ai/DeepSeek-V3"]
+input = 0.27
+output = 1.10
+context_window = 131072
+
+[siliconflow."Qwen/Qwen2.5-72B-Instruct"]
+input = 0.35
+output = 1.35
+context_window = 131072
+
+[siliconflow."deepseek-ai/DeepSeek-R1"]
+input = 0.55
+output = 2.19
+context_window = 131072
+
+# ════════════════════════════════════════
+# StepFun (阶跃星辰)
+# ════════════════════════════════════════
+
+[stepfun."step-1-8k"]
+input = 2.00
+output = 2.00
+context_window = 8192
+
+[stepfun."step-1-32k"]
+input = 4.00
+output = 4.00
+context_window = 32768
+
+[stepfun."step-1-256k"]
+input = 15.00
+output = 15.00
+context_window = 262144
+
+# ════════════════════════════════════════
+# Baichuan (百川)
+# ════════════════════════════════════════
+
+[baichuan."Baichuan4"]
+input = 3.00
+output = 9.00
+context_window = 32768
+
+[baichuan."Baichuan3-Turbo"]
+input = 1.00
+output = 4.00
+context_window = 32768
+
+# ════════════════════════════════════════
+# Yi (零一万物)
+# ════════════════════════════════════════
+
+[yi."yi-large"]
+input = 2.40
+output = 2.40
+context_window = 32768
+
+[yi."yi-medium"]
+input = 0.60
+output = 0.60
+context_window = 16384
+
+[yi."yi-large-turbo"]
+input = 1.20
+output = 1.20
+context_window = 16384
+
+# ════════════════════════════════════════
+# Zhipu (智谱清言 - GLM 系列同上)
+# ════════════════════════════════════════
+
+# (与 glm 共享定价)
+
+# ════════════════════════════════════════
+# Groq (托管开源模型)
+# ════════════════════════════════════════
+
+[groq."llama-3.3-70b"]
+input = 0.59
+output = 0.79
+context_window = 131072
+
+[groq."llama-3.1-8b"]
+input = 0.05
+output = 0.08
+context_window = 131072
+
+[groq."mixtral-8x7b"]
+input = 0.24
+output = 0.24
+context_window = 32768
+
+# ════════════════════════════════════════
+# Google
+# ════════════════════════════════════════
+
+[google."gemini-2.5-pro"]
+input = 1.25
+output = 10.00
+cache_read = 0.315
+context_window = 1048576
+
+[google."gemini-2.5-flash"]
+input = 0.15
+output = 0.60
+cache_read = 0.0375
+context_window = 1048576
+
+[google."gemini-2.0-flash"]
+input = 0.10
+output = 0.40
+context_window = 1048576
+
+# ════════════════════════════════════════
+# xAI (Grok)
+# ════════════════════════════════════════
+
+[xai."grok-3"]
+input = 3.00
+output = 15.00
+context_window = 131072
+
+[xai."grok-3-mini"]
+input = 0.30
+output = 0.50
+context_window = 131072
+
+# ════════════════════════════════════════
+# Mistral
+# ════════════════════════════════════════
+
+[mistral."mistral-large-latest"]
+input = 2.00
+output = 6.00
+context_window = 131072
+
+[mistral."mistral-small-latest"]
+input = 0.10
+output = 0.30
+context_window = 32768
+
+[mistral."codestral-latest"]
+input = 0.30
+output = 0.90
+context_window = 262144

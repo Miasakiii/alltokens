@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-07-13T12:00:00Z",
+  "rateLimits": {
+    "fiveHour": {
+      "usedPercentage": 23.5,
+      "resetsAt": 1738425600
+    },
+    "sevenDay": {
+      "usedPercentage": 41.2,
+      "resetsAt": 1738857600
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "session_id": "legacy-json-sess",
+  "items": [
+    {
+      "type": "message",
+      "model": "gpt-4o",
+      "timestamp": "2026-07-08T14:00:00Z",
+      "usage": {
+        "input_tokens": 250,
+        "output_tokens": 80,
+        "input_tokens_details": { "cached_tokens": 30 },
+        "total_tokens": 360
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# Rust 构建产物
+/target
+/src-tauri/target/
+/src-tauri/gen/
+
+# 前端构建产物与依赖
+node_modules/
+/dist/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+
+# 本地数据与日志
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# 本地工具/环境
+.DS_Store
+.claude/
+.tmp-*

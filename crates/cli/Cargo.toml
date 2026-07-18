@@ -1,0 +1,25 @@
+[package]
+name = "alltokens-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "alltokens"
+path = "src/main.rs"
+
+[dependencies]
+alltokens-core = { path = "../core" }
+alltokens-collectors = { path = "../collectors" }
+alltokens-web = { path = "../web" }
+alltokens-proxy = { path = "../proxy" }
+tokio = { workspace = true }
+clap = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+dirs = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

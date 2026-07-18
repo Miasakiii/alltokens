@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- AllTokens logo: ascending bar chart with metered token, transparent background -->
+  <g fill="#B45309">
+    <rect x="10" y="34" width="10" height="18" rx="2"/>
+    <rect x="27" y="26" width="10" height="26" rx="2"/>
+    <rect x="44" y="18" width="10" height="34" rx="2"/>
+    <circle cx="49" cy="10" r="5"/>
+  </g>
+  <rect x="6" y="55" width="52" height="4" rx="2" fill="#292524"/>
+</svg>

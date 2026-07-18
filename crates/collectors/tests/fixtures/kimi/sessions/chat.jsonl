@@ -1,0 +1,2 @@
+{"model":"moonshot-v1-8k","timestamp":"2026-07-10T12:00:00Z","usage":{"prompt_tokens":1200,"completion_tokens":600,"total_tokens":1800}}
+{"model":"moonshot-v1-32k","timestamp":"2026-07-10T13:00:00Z","usage":{"prompt_tokens":800,"completion_tokens":400,"total_tokens":1200}}

@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"id":"sess-abc","timestamp":"2026-07-10T10:00:00Z","cwd":"/tmp/project"}}
+{"type":"turn_context","payload":{"model":"gpt-4o","cwd":"/tmp/project"}}
+{"timestamp":"2026-07-10T10:01:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":200,"output_tokens":500,"reasoning_output_tokens":100,"total_tokens":1500}}}}
+{"timestamp":"2026-07-10T10:02:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1500,"cached_input_tokens":400,"output_tokens":800,"reasoning_output_tokens":150,"total_tokens":2300}}}}

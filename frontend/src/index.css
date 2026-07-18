@@ -1,0 +1,358 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   AllTokens Design System — "Warm Ledger"
+   低饱和暖色调、充足留白、清晰层级。Light 为默认主题，Dark 完整支持。
+   所有组件必须使用本文件的 token / 组件类，禁止硬编码 Tailwind 颜色。
+   ========================================================================== */
+
+:root,
+html[data-theme="light"] {
+  --app-bg: #f6f4ef;
+  --app-fg: #44403c;
+  --app-heading: #1c1917;
+  --app-muted: #78716c;
+  --app-faint: #a8a29e;
+
+  --app-surface: #fffefb;
+  --app-surface-2: #efece5;
+  --app-surface-border: #e5e0d5;
+  --app-surface-border-strong: #d6d0c3;
+
+  --app-accent: #b45309;
+  --app-accent-fg: #92400e;
+  --app-accent-soft: rgba(180, 83, 9, 0.1);
+  --app-accent-border: rgba(180, 83, 9, 0.28);
+
+  --app-success: #4d7c0f;
+  --app-success-soft: rgba(77, 124, 15, 0.12);
+  --app-warn: #b45309;
+  --app-warn-soft: rgba(180, 83, 9, 0.12);
+  --app-danger: #b3352c;
+  --app-danger-soft: rgba(179, 53, 44, 0.1);
+  --app-info: #0f766e;
+  --app-info-soft: rgba(15, 118, 110, 0.1);
+
+  --app-control-bg: #fffefb;
+  --app-tooltip-bg: #292524;
+  --app-tooltip-fg: #fafaf9;
+
+  --chart-1: #d97706;
+  --chart-2: #c2542a;
+  --chart-3: #7d8c5c;
+  --chart-4: #4f7a78;
+  --chart-5: #a85d6b;
+  --chart-6: #8a7a4f;
+  --chart-7: #6b7f9e;
+  --chart-8: #96785b;
+
+  --app-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 4px 16px rgba(28, 25, 23, 0.04);
+  --app-ring: rgba(180, 83, 9, 0.35);
+
+  --scrollbar-track: #ece8df;
+  --scrollbar-thumb: #c9c2b2;
+}
+
+html[data-theme="dark"] {
+  --app-bg: #151310;
+  --app-fg: #d6d3cd;
+  --app-heading: #f5f4f1;
+  --app-muted: #a8a29e;
+  --app-faint: #6f6a62;
+
+  --app-surface: #1e1b17;
+  --app-surface-2: #17140f;
+  --app-surface-border: #2e2a23;
+  --app-surface-border-strong: #3d382e;
+
+  --app-accent: #e0913f;
+  --app-accent-fg: #f0a85c;
+  --app-accent-soft: rgba(224, 145, 63, 0.13);
+  --app-accent-border: rgba(224, 145, 63, 0.35);
+
+  --app-success: #a3c14a;
+  --app-success-soft: rgba(163, 193, 74, 0.14);
+  --app-warn: #e0913f;
+  --app-warn-soft: rgba(224, 145, 63, 0.14);
+  --app-danger: #e0655c;
+  --app-danger-soft: rgba(224, 101, 92, 0.13);
+  --app-info: #4fb3a9;
+  --app-info-soft: rgba(79, 179, 169, 0.13);
+
+  --app-control-bg: #262219;
+  --app-tooltip-bg: #f5f4f1;
+  --app-tooltip-fg: #1c1917;
+
+  --chart-1: #e0913f;
+  --chart-2: #d0694a;
+  --chart-3: #9aab70;
+  --chart-4: #63a09c;
+  --chart-5: #c07f8c;
+  --chart-6: #b3a06b;
+  --chart-7: #87a0c2;
+  --chart-8: #b3967a;
+
+  --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --app-ring: rgba(224, 145, 63, 0.4);
+
+  --scrollbar-track: #1e1b17;
+  --scrollbar-thumb: #3d382e;
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--app-bg);
+  color: var(--app-fg);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--app-accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--app-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+
+/* --------------------------------------------------------------------------
+   Component classes — 组件优先使用这些类，而非硬编码颜色工具类
+   -------------------------------------------------------------------------- */
+
+/* 卡片表面 */
+.surface {
+  background: var(--app-surface);
+  border: 1px solid var(--app-surface-border);
+  border-radius: 14px;
+  box-shadow: var(--app-shadow);
+}
+
+/* 卡片内嵌面板（表格行、内层分组） */
+.surface-2 {
+  background: var(--app-surface-2);
+  border: 1px solid var(--app-surface-border);
+  border-radius: 10px;
+}
+
+.statusbar {
+  background: var(--app-surface);
+  border-top: 1px solid var(--app-surface-border);
+}
+
+.text-heading { color: var(--app-heading); }
+.text-muted { color: var(--app-muted); }
+.text-faint { color: var(--app-faint); }
+
+/* 小号大写标签（卡片标题、表头、字段名） */
+.label-xs {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
+/* 数字排版 */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* 强调色文字 */
+.text-accent { color: var(--app-accent-fg); }
+.text-success { color: var(--app-success); }
+.text-warn { color: var(--app-warn); }
+.text-danger { color: var(--app-danger); }
+.text-info { color: var(--app-info); }
+
+/* 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9px;
+  border: 1px solid var(--app-surface-border);
+  background: var(--app-control-bg);
+  color: var(--app-fg);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--app-surface-border-strong);
+  color: var(--app-heading);
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn-primary {
+  background: var(--app-accent);
+  border-color: transparent;
+  color: #fff;
+}
+html[data-theme="dark"] .btn-primary { color: #1c1917; }
+.btn-primary:hover:not(:disabled) {
+  background: var(--app-accent);
+  filter: brightness(1.08);
+  color: #fff;
+}
+html[data-theme="dark"] .btn-primary:hover:not(:disabled) { color: #1c1917; }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  border-radius: 9px;
+  border: 1px solid var(--app-surface-border);
+  background: var(--app-control-bg);
+  color: var(--app-muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--app-surface-border-strong);
+  color: var(--app-heading);
+}
+.icon-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* 分段控件（周期切换、指标切换） */
+.pill {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--app-surface-border);
+  background: var(--app-surface-2);
+}
+.pill-item {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.pill-item:hover { color: var(--app-heading); }
+.pill-item-active {
+  background: var(--app-surface);
+  color: var(--app-heading);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* 表单控件 */
+.input {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 9px;
+  border: 1px solid var(--app-surface-border);
+  background: var(--app-control-bg);
+  color: var(--app-fg);
+  transition: border-color 0.15s;
+}
+.input::placeholder { color: var(--app-faint); }
+.input:focus {
+  outline: none;
+  border-color: var(--app-accent-border);
+}
+
+/* 徽章 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid var(--app-surface-border);
+  color: var(--app-muted);
+  white-space: nowrap;
+}
+.badge-accent { background: var(--app-accent-soft); border-color: var(--app-accent-border); color: var(--app-accent-fg); }
+.badge-success { background: var(--app-success-soft); border-color: transparent; color: var(--app-success); }
+.badge-warn { background: var(--app-warn-soft); border-color: transparent; color: var(--app-warn); }
+.badge-danger { background: var(--app-danger-soft); border-color: transparent; color: var(--app-danger); }
+.badge-info { background: var(--app-info-soft); border-color: transparent; color: var(--app-info); }
+
+/* 加载骨架 */
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--app-surface-2) 25%,
+    var(--app-surface-border) 50%,
+    var(--app-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 进度条 / 占比条 */
+.meter {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--app-surface-2);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--app-accent);
+  transition: width 0.4s ease;
+}
+
+/* 兼容旧类名（Tooltip、主题控件） */
+.theme-control {
+  background: var(--app-control-bg) !important;
+  border-color: var(--app-surface-border) !important;
+}
+.theme-tooltip {
+  background: var(--app-tooltip-bg);
+  color: var(--app-tooltip-fg);
+}
+
+/* 图表分类色（可通过 style 或工具类使用） */
+.chart-1 { color: var(--chart-1); }
+.chart-2 { color: var(--chart-2); }
+.chart-3 { color: var(--chart-3); }
+.chart-4 { color: var(--chart-4); }
+.chart-5 { color: var(--chart-5); }
+.chart-6 { color: var(--chart-6); }
+.chart-7 { color: var(--chart-7); }
+.chart-8 { color: var(--chart-8); }
+.chart-bg-1 { background-color: var(--chart-1); }
+.chart-bg-2 { background-color: var(--chart-2); }
+.chart-bg-3 { background-color: var(--chart-3); }
+.chart-bg-4 { background-color: var(--chart-4); }
+.chart-bg-5 { background-color: var(--chart-5); }
+.chart-bg-6 { background-color: var(--chart-6); }
+.chart-bg-7 { background-color: var(--chart-7); }
+.chart-bg-8 { background-color: var(--chart-8); }
