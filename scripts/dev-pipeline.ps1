@@ -34,7 +34,12 @@ $SharedNotes = Join-Path $RepoRoot "SHARED_TASK_NOTES.md"
 
 function Get-TaskFromNotes {
     if (-not (Test-Path $SharedNotes)) {
-        throw "SHARED_TASK_NOTES.md not found at repo root."
+        # SHARED_TASK_NOTES.md is an untracked internal planning doc — absent on clean clones.
+        Write-Host "SHARED_TASK_NOTES.md not found (internal planning docs are not tracked in git)." -ForegroundColor Yellow
+        Write-Host "Pass a task explicitly instead, e.g.:" -ForegroundColor Yellow
+        Write-Host '  .\scripts\dev-pipeline.ps1 -Task "Add storage unit tests for batch insert"' -ForegroundColor Yellow
+        Write-Host "See README.md for project context." -ForegroundColor Yellow
+        exit 1
     }
     $lines = Get-Content $SharedNotes -Encoding UTF8
     foreach ($line in $lines) {
@@ -45,7 +50,8 @@ function Get-TaskFromNotes {
             return $Matches[1].Trim()
         }
     }
-    throw "No unchecked task found in SHARED_TASK_NOTES.md Progress section."
+    Write-Host "No unchecked task found in SHARED_TASK_NOTES.md — pass one with -Task `"<description>`"." -ForegroundColor Yellow
+    exit 1
 }
 
 function Invoke-ClaudeStep {
@@ -73,10 +79,13 @@ if ([string]::IsNullOrWhiteSpace($Task)) {
 
 # --- Step 1: Implement ---
 # Fresh context; read specs and implement the task. Let the agent be thorough with tests.
+# README.md is always tracked; internal planning docs are included only when present.
+$contextDocs = @('README.md') + @(@('SHARED_TASK_NOTES.md', 'STATUS.md', 'PLAN.md') |
+    Where-Object { Test-Path (Join-Path $RepoRoot $_) })
 $implementPrompt = @"
 You are working on AllTokens (Rust + React + Tauri token tracker) at $RepoRoot.
 
-Read SHARED_TASK_NOTES.md, STATUS.md, and PLAN.md for context.
+Read $($contextDocs -join ', ') for context.
 
 Task: $Task
 
@@ -106,15 +115,16 @@ Invoke-ClaudeStep -Name "De-sloppify" -Prompt $desloppifyPrompt
 
 # --- Step 3: Verify ---
 # Build, lint, typecheck, test — fix failures only, no new features.
+$blockerTarget = if (Test-Path $SharedNotes) { 'the SHARED_TASK_NOTES.md Notes section' } else { 'your final output' }
 $verifyPrompt = @"
 At $RepoRoot (AllTokens), run the full verification suite and fix any failures:
 
 1. cargo test --workspace
 2. cargo build --release -p alltokens-cli
-3. cd frontend && npm run build
+3. cd frontend && npm run typecheck && npm run lint && npm run test && npm run build
 
 Do not add new features. Do not commit.
-If a step cannot run (missing deps), document the blocker in SHARED_TASK_NOTES.md Notes section.
+If a step cannot run (missing deps), document the blocker in $blockerTarget.
 "@
 
 Invoke-ClaudeStep -Name "Verify" -Prompt $verifyPrompt
