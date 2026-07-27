@@ -17,8 +17,11 @@ frontend/tsconfig.tsbuildinfo
 
 # 本地工具/环境
 .DS_Store
-.claude/
 .tmp-*
+
+# .claude/ 仅入库可复用的项目级命令，其余（本地设置等）不入库
+.claude/*
+!.claude/commands/
 
 # 内部规划与进度文档（不入库）
 PLAN.md

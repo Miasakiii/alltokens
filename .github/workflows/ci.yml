@@ -45,6 +45,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Typecheck
-        run: npx tsc -b
+        run: npm run typecheck
       - name: Lint
-        run: npx --yes oxlint@1.75.0
+        run: npm run lint
+      - name: Test
+        run: npm test
