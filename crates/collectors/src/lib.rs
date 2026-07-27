@@ -61,35 +61,33 @@ pub fn register_collectors() -> Vec<Box<dyn Collector>> {
         }};
     }
 
-    // AI 编码工具 (CLI / Agent)
+    // CLI
     reg!(claude_code::ClaudeCodeCollector::new());
-    reg!(cursor::CursorCollector::new());
     reg!(codex::CodexCollector::new());
+    reg!(opencode::OpenCodeCollector::new());
     reg!(openclaw::OpenClawCollector::new());
     reg!(hermes::HermesCollector::new());
-    reg!(opencode::OpenCodeCollector::new());
-    reg!(copilot::CopilotCollector::new());
+    reg!(generic::GrokBuildCollector::new());
+    reg!(generic::KimiCollector::new());
+    reg!(generic::QwenCollector::new());
+    reg!(generic::PiCollector::new());
+    reg!(generic::MiMoCodeCollector::new());
 
-    // VS Code 扩展系列
+    // AI IDE
+    reg!(cursor::CursorCollector::new());
+    reg!(windsurf::WindsurfCollector::new());
+    reg!(zed::ZedCollector::new());
+    reg!(trae::TraeCollector::new());
+    reg!(generic::QoderCollector::new());
+    reg!(zcode::ZCodeCollector::new());
+    reg!(generic::AntigravityCollector::new());
+
+    // IDE / VS Code 扩展
+    reg!(copilot::CopilotCollector::new());
     reg!(cline::ClineCollector::new_cline());
     reg!(cline::ClineCollector::new_roo_code());
     reg!(cline::ClineCollector::new_kilo_code());
     reg!(codebuddy::CodeBuddyCollector::new());
-
-    // IDE
-    reg!(windsurf::WindsurfCollector::new());
-    reg!(zed::ZedCollector::new());
-    reg!(zcode::ZCodeCollector::new());
-    reg!(trae::TraeCollector::new());
-
-    // 国产 CLI / Agent
-    reg!(generic::KimiCollector::new());
-    reg!(generic::QwenCollector::new());
-    reg!(generic::QoderCollector::new());
-    reg!(generic::GrokBuildCollector::new());
-    reg!(generic::AntigravityCollector::new());
-    reg!(generic::PiCollector::new());
-    reg!(generic::MiMoCodeCollector::new());
 
     // 第三方导入
     reg!(cc_switch::CcSwitchCollector::new());

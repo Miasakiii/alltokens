@@ -30,12 +30,10 @@ Windows 下将 `./target/release/alltokens` 替换为 `.\target\release\alltoken
 
 | 分类 | 工具 | 数据源 |
 |---|---|---|
-| **AI Agent** | Claude Code, Codex CLI, OpenClaw, Hermes, OpenCode | JSONL / JSON / SQLite |
-| **IDE** | Cursor, Windsurf, Zed, ZCode, Trae, Qoder, Grok Build | JSON / SQLite |
-| **VS Code 扩展** | Cline, Roo Code, Kilo Code, CodeBuddy | globalStorage |
-| **国产 CLI** | Kimi CLI, Qwen CLI, Antigravity, Pi, MiMo Code | JSON / JSONL |
-| **代码助手** | GitHub Copilot | JSON |
-| **第三方导入** | cc-switch | SQLite 导入 |
+| **CLI** (10) | Claude Code, Codex CLI, OpenCode, OpenClaw, Hermes, Grok Build, Kimi CLI, Qwen CLI, Pi, MiMo Code | JSONL / JSON / SQLite |
+| **AI IDE** (7) | Cursor, Windsurf, Zed, Trae, Qoder, ZCode, Antigravity | JSON / SQLite |
+| **IDE / VS Code 扩展** (5) | GitHub Copilot, Cline, Roo Code, Kilo Code, CodeBuddy | globalStorage / JSON |
+| **第三方导入** (1) | cc-switch | SQLite 导入 |
 
 所有 Collector **自动支持 WSL** — 扫描 `/mnt/c/Users/` 等 Windows 路径。可在 Settings 中单独启用/禁用。
 
