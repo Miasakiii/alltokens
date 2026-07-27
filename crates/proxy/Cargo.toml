@@ -21,7 +21,7 @@ rcgen = { workspace = true }
 rustls-pemfile = { workspace = true }
 
 # Utilities
-lru = "0.12"
+lru = "0.16"
 once_cell = "1"
 flate2 = "1"
 brotli = "7"
