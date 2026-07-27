@@ -65,7 +65,8 @@ alltokens sync export -o snapshot.db    # 导出一致快照（供其他设备�
 alltokens sync import snapshot.db       # 合并其他设备的数据库（自动去重、幂等）
 alltokens proxy start [--mitm] [--listen 127.0.0.1:7890]  # 启动代理（--mitm 解密 HTTPS）
 alltokens proxy status                  # 代理状态说明
-alltokens ca install|uninstall|status|path [--ca-dir DIR]  # CA 证书管理（系统信任库）
+alltokens ca install [--yes] [--dry-run] [--ca-dir DIR]  # ⚠️ 敏感：安装 CA 到系统信任库（默认交互确认，--dry-run 仅预览）
+alltokens ca uninstall|status|path [--ca-dir DIR]  # 移除 / 查询状态 / 显示证书路径
 alltokens probe [--json]                 # 列出全部采集器检测状态
 alltokens probe codex [--json]           # Codex 数据源探测 + 额度快照
 alltokens probe claude [--json]          # Claude Code 数据源探测 + 额度快照
@@ -124,7 +125,7 @@ alltokens probe cursor|opencode|windsurf [--json]  # 其他采集器探测
 | `GET/PUT /api/config/data` | 数据保留策略 |
 | `GET/PUT /api/config/subscription` | 订阅档位（羊毛价值估算） |
 | `GET /api/ca/status` | CA 证书安装状态 |
-| `POST /api/ca/install` | 安装 CA 到系统信任库 |
+| `POST /api/ca/install` | ⚠️ 敏感：安装 CA 到系统信任库。需在请求体显式传 `{"confirm": true}`，否则仅返回 dry-run 预览（不写入）；CORS 已收紧至应用自身来源 |
 | `POST /api/ca/uninstall` | 移除 CA 证书 |
 | `GET /api/quota/codex?refresh=true` | Codex 额度（app-server JSON-RPC，可刷新） |
 | `GET /api/quota/claude?refresh=true` | Claude 额度（statusLine 快照，可刷新） |
@@ -217,6 +218,17 @@ cd frontend && npm install && npm run build  # 前端依赖 + 构建
 cd src-tauri && npx @tauri-apps/cli build    # 桌面端打包（MSI + NSIS）
 # 合计 170 个测试
 ```
+
+## 开发循环
+
+项目自带两个已入库的可复用开发循环入口（实现 → 去冗余 → 验证，可选提交）：
+
+```powershell
+# 非交互式流水线（需要 claude CLI）
+.\scripts\dev-pipeline.ps1 -Task "任务描述"
+```
+
+或在 Claude Code 会话内使用 `/dev-loop <任务>` 命令（`.claude/commands/dev-loop.md`）。两者均以本 README 为基础上下文；未入库的内部规划笔记（PLAN/STATUS/SHARED_TASK_NOTES）仅在本地存在时作为可选补充。
 
 ## 技术栈
 
