@@ -169,6 +169,10 @@ export interface CaStatus {
   cert_present: boolean;
   cert_path: string;
   platform: string;
+  /** Present on POST /api/ca/install responses: true when no change was made (no confirmation). */
+  dry_run?: boolean;
+  /** Present on POST /api/ca/install responses: human-readable summary of the action. */
+  action?: string;
 }
 
 export interface PricingSummary {
