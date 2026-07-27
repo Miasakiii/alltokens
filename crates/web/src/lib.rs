@@ -9,7 +9,7 @@ use alltokens_core::model::{CollectorsConfig, ClaudeQuotaResponse, CodexQuotaRes
 use alltokens_core::pricing::PricingEntry;
 use alltokens_core::storage::Storage;
 use axum::extract::{Query, State};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::response::Json;
 use axum::routing::{get, post, put};
@@ -227,14 +227,58 @@ async fn ca_status() -> Result<Json<ApiResponse<CaStatusPayload>>, StatusCode> {
     Ok(Json(ApiResponse::ok(payload)))
 }
 
-async fn ca_install() -> Result<Json<ApiResponse<CaStatusPayload>>, StatusCode> {
-    let payload = tokio::task::spawn_blocking(|| {
+/// Request body for `POST /api/ca/install`.
+///
+/// Installing the MITM CA into the OS trust store is a sensitive, security-relevant
+/// operation, so it is never performed implicitly: the caller must opt in with
+/// `{"confirm": true}`. Any other body (or no body at all) yields a dry-run that
+/// reports the planned action without touching the trust store.
+#[derive(Debug, Default, Deserialize)]
+struct CaInstallRequest {
+    #[serde(default)]
+    confirm: bool,
+}
+
+/// Response for `POST /api/ca/install`: the resulting trust-store status plus
+/// whether the call was a dry-run and a human-readable summary of the action.
+#[derive(Debug, Serialize)]
+struct CaInstallPayload {
+    /// True when no change was made because confirmation was absent.
+    dry_run: bool,
+    /// Human-readable description of the action taken (or that would be taken).
+    action: String,
+    #[serde(flatten)]
+    status: CaStatusPayload,
+}
+
+async fn ca_install(
+    body: Option<Json<CaInstallRequest>>,
+) -> Result<Json<ApiResponse<CaInstallPayload>>, StatusCode> {
+    let confirm = body.map(|Json(b)| b.confirm).unwrap_or(false);
+    let payload = tokio::task::spawn_blocking(move || {
+        if !confirm {
+            // Dry-run: report the planned action without writing to the trust store.
+            let status = build_ca_status_payload();
+            let action = format!(
+                "dry-run: would install CA into the {} trust store; re-send with {{\"confirm\": true}} to apply",
+                status.platform
+            );
+            return Ok::<_, anyhow::Error>(CaInstallPayload {
+                dry_run: true,
+                action,
+                status,
+            });
+        }
         let dir = alltokens_proxy::ProxyConfig::default().ca_dir();
         // Ensure the CA exists before installing.
         alltokens_proxy::CertificateAuthority::load_or_generate(&dir)?;
         let cert_path = alltokens_proxy::CertificateAuthority::cert_path(&dir);
         alltokens_proxy::install(&cert_path)?;
-        Ok::<_, anyhow::Error>(build_ca_status_payload())
+        Ok(CaInstallPayload {
+            dry_run: false,
+            action: "installed CA into system trust store".to_string(),
+            status: build_ca_status_payload(),
+        })
     })
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -933,18 +977,41 @@ impl WebConfig {
     }
 }
 
-pub async fn start_web(config: WebConfig) -> anyhow::Result<()> {
-    let events = config.events.unwrap_or_else(EventBus::new);
-    install_event_bus(events.clone());
+/// Build the CORS layer restricted to the app's own origins.
+///
+/// The dashboard is served same-origin in `serve` mode, and the Tauri desktop
+/// shell loads from the `tauri://localhost` / `http://tauri.localhost` origins
+/// while calling the embedded API on loopback. Every other origin (e.g. a random
+/// web page in the user's browser) is rejected, so sensitive endpoints such as
+/// `POST /api/ca/install` cannot be driven cross-origin.
+fn build_cors() -> tower_http::cors::CorsLayer {
+    const ALLOWED_ORIGINS: [&str; 9] = [
+        // Tauri desktop shell (scheme differs by platform / WebView).
+        "tauri://localhost",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        // `alltokens serve` default port.
+        "http://localhost:3210",
+        "http://127.0.0.1:3210",
+        // Tauri-embedded web server port.
+        "http://localhost:3212",
+        "http://127.0.0.1:3212",
+        // Vite dev server (frontend dev; API is normally reached via its proxy).
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ];
+    let origins: Vec<HeaderValue> = ALLOWED_ORIGINS
+        .iter()
+        .filter_map(|o| o.parse::<HeaderValue>().ok())
+        .collect();
+    tower_http::cors::CorsLayer::new()
+        .allow_origin(origins)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
+        .allow_headers([header::CONTENT_TYPE])
+}
 
-    let state = AppState {
-        storage: config.storage,
-        events,
-    };
-    let cors = tower_http::cors::CorsLayer::permissive();
-
-    let auto_scan_state = state.clone();
-
+/// Assemble the full Axum app (API routes + restrictive CORS + optional static dir).
+fn build_app(state: AppState, static_dir: Option<std::path::PathBuf>) -> Router {
     let api_routes = Router::new()
         .route("/health", get(health))
         .route("/overview", get(overview))
@@ -980,14 +1047,28 @@ pub async fn start_web(config: WebConfig) -> anyhow::Result<()> {
 
     let mut app = Router::new()
         .nest("/api", api_routes)
-        .layer(cors)
+        .layer(build_cors())
         .with_state(state);
 
-    if let Some(static_dir) = config.static_dir {
+    if let Some(static_dir) = static_dir {
         if static_dir.exists() {
             app = app.fallback_service(tower_http::services::ServeDir::new(static_dir));
         }
     }
+    app
+}
+
+pub async fn start_web(config: WebConfig) -> anyhow::Result<()> {
+    let events = config.events.unwrap_or_else(EventBus::new);
+    install_event_bus(events.clone());
+
+    let state = AppState {
+        storage: config.storage,
+        events,
+    };
+
+    let auto_scan_state = state.clone();
+    let app = build_app(state, config.static_dir);
 
     tracing::info!("Starting web server on {}", config.listen_addr);
     let listener = tokio::net::TcpListener::bind(config.listen_addr).await?;
@@ -1085,6 +1166,78 @@ mod tests {
         assert_eq!(label, "macos");
         #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
         assert_eq!(label, "linux");
+    }
+
+    #[tokio::test]
+    async fn cors_allows_app_origin_and_rejects_foreign() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let app = build_app(test_app_state(), None);
+
+        // Foreign origin preflight → no Access-Control-Allow-Origin echoed back,
+        // so the browser blocks the actual (sensitive) request.
+        let evil = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/api/ca/install")
+                    .header(header::ORIGIN, "https://evil.example.com")
+                    .header("access-control-request-method", "POST")
+                    .header("access-control-request-headers", "content-type")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            evil.headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .is_none(),
+            "foreign origin must not receive an Access-Control-Allow-Origin header"
+        );
+
+        // App (Tauri) origin preflight → Access-Control-Allow-Origin echoes it back.
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .method("OPTIONS")
+                    .uri("/api/ca/install")
+                    .header(header::ORIGIN, "http://tauri.localhost")
+                    .header("access-control-request-method", "POST")
+                    .header("access-control-request-headers", "content-type")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            allowed
+                .headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .and_then(|v| v.to_str().ok()),
+            Some("http://tauri.localhost"),
+            "app origin must be allowed through CORS"
+        );
+    }
+
+    #[tokio::test]
+    async fn ca_install_without_confirm_is_dry_run() {
+        // No confirmation → dry-run: the response is flagged and no install is attempted.
+        let Json(resp) = ca_install(Some(Json(CaInstallRequest { confirm: false })))
+            .await
+            .unwrap();
+        assert!(resp.data.dry_run, "unconfirmed install must be a dry-run");
+        assert!(resp.data.action.contains("dry-run"));
+    }
+
+    #[tokio::test]
+    async fn ca_install_missing_body_defaults_to_dry_run() {
+        // A bare POST with no body must never silently write to the trust store.
+        let Json(resp) = ca_install(None).await.unwrap();
+        assert!(resp.data.dry_run);
     }
 
     #[tokio::test]

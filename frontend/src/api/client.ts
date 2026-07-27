@@ -85,8 +85,16 @@ export const api = {
 
   caStatus: () => get<CaStatus>(`${API_BASE}/ca/status`),
 
-  async installCa(): Promise<CaStatus> {
-    const res = await fetch(`${API_BASE}/ca/install`, { method: 'POST' });
+  /** Install the MITM CA into the OS trust store. Sensitive: the server only
+   *  writes to the trust store when `confirm` is true; otherwise it returns a
+   *  dry-run preview. The JSON body also forces a CORS preflight so the request
+   *  cannot be driven from a foreign origin. */
+  async installCa(confirm = false): Promise<CaStatus> {
+    const res = await fetch(`${API_BASE}/ca/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm }),
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const json: ApiResponse<CaStatus> = await res.json();
     return json.data;

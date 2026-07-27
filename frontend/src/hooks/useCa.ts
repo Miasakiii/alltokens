@@ -16,11 +16,11 @@ export function useCa() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
-  const install = useCallback(async () => {
+  const install = useCallback(async (confirm: boolean) => {
     setBusy(true);
     setError(null);
     try {
-      setData(await api.installCa());
+      setData(await api.installCa(confirm));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

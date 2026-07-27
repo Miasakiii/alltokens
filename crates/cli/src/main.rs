@@ -174,11 +174,17 @@ enum ProxyAction {
 
 #[derive(Subcommand)]
 enum CaAction {
-    /// 安装 CA 证书到系统信任库
+    /// 安装 CA 证书到系统信任库（敏感操作：安装后本机将信任由该 CA 签发的任意 HTTPS 证书）
     Install {
         /// CA 证书目录路径（默认 ~/.alltokens/ca/）
         #[arg(long)]
         ca_dir: Option<String>,
+        /// 跳过交互式确认直接安装（供非交互脚本使用）
+        #[arg(long)]
+        yes: bool,
+        /// 仅打印将执行的操作，不写入系统信任库
+        #[arg(long)]
+        dry_run: bool,
     },
     /// 从系统信任库移除 CA 证书
     Uninstall {
@@ -779,16 +785,40 @@ async fn main() -> Result<()> {
                 .ca_dir()
             };
             match action {
-                CaAction::Install { ca_dir } => {
+                CaAction::Install { ca_dir, yes, dry_run } => {
                     let dir = resolve_dir(ca_dir);
-                    // 确保证书已生成
+                    // 确保证书已生成（写到 CA 目录，尚未写入信任库）
                     alltokens_proxy::CertificateAuthority::load_or_generate(&dir)?;
                     let cert_path =
                         alltokens_proxy::CertificateAuthority::cert_path(&dir);
-                    println!("🔐 Installing CA into system trust store...");
+                    let store = match alltokens_proxy::TrustStore::detect() {
+                        alltokens_proxy::TrustStore::Windows => "Windows 用户根证书存储",
+                        alltokens_proxy::TrustStore::MacOs => "macOS 登录钥匙串",
+                        alltokens_proxy::TrustStore::Linux => "Linux 系统信任锚点目录",
+                    };
+                    println!("\u{26a0}\u{fe0f}  敏感操作：将把 MITM CA 安装到{store}。");
                     println!("   Cert: {}", cert_path.display());
+                    println!("   安装后本机将信任由该 CA 签发的任意 HTTPS 证书，请仅在信任本工具时继续。");
+
+                    if dry_run {
+                        println!("\u{1f50e} dry-run：未写入信任库。确认无误后加 --yes 执行安装。");
+                        return Ok(());
+                    }
+                    if !yes {
+                        use std::io::Write;
+                        print!("确认安装？输入 y 继续，其他任意键取消：");
+                        std::io::stdout().flush().ok();
+                        let mut answer = String::new();
+                        std::io::stdin().read_line(&mut answer).ok();
+                        let answer = answer.trim().to_lowercase();
+                        if answer != "y" && answer != "yes" {
+                            println!("已取消，未写入信任库。");
+                            return Ok(());
+                        }
+                    }
+                    println!("\u{1f510} Installing CA into system trust store...");
                     alltokens_proxy::install(&cert_path)?;
-                    println!("✅ CA installed. HTTPS interception (--mitm) is now trusted.");
+                    println!("\u{2705} CA installed. HTTPS interception (--mitm) is now trusted.");
                     match alltokens_proxy::TrustStore::detect() {
                         alltokens_proxy::TrustStore::MacOs => {
                             println!("   (macOS 首次可能需要在钥匙串中确认信任)");

@@ -874,6 +874,16 @@ function CaSettings() {
           ? '安装到当前用户的受信任根证书存储（无需管理员权限）。'
           : "Installs into the current user's trusted root certificate store (no admin rights required).";
 
+  const confirmInstall = () => {
+    // Sensitive operation: installing a MITM root CA requires explicit user consent.
+    const msg = zh
+      ? '这是敏感操作：将把 MITM 根证书安装到系统信任库。安装后本机会信任由它签发的任意 HTTPS 证书。确认继续？'
+      : 'Sensitive action: this installs a MITM root certificate into your system trust store. Afterwards this machine will trust any HTTPS certificate it issues. Continue?';
+    if (window.confirm(msg)) {
+      void install(true);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -889,11 +899,16 @@ function CaSettings() {
       )}
 
       <p className="text-xs text-muted">{hint}</p>
+      <p className="text-xs text-warn">
+        {zh
+          ? '⚠️ 敏感操作：安装会写入系统信任库，需二次确认。'
+          : '⚠️ Sensitive: installing writes to the system trust store and requires confirmation.'}
+      </p>
 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={install}
+          onClick={confirmInstall}
           disabled={busy || status === 'installed'}
           className="btn btn-primary"
         >
