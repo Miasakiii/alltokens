@@ -187,12 +187,13 @@ fn parse_kimi_usage_record(
     })
 }
 
-/// 从 wire.jsonl 路径提取会话目录名: .../sessions/wd_*/session_<uuid>/agents/*/wire.jsonl
+/// 从 wire.jsonl 路径向上回溯，取第一个名为 session_* 的目录。
+/// 兼容 .../sessions/wd_*/session_<uuid>/agents/*/wire.jsonl 结构及目录深度变化。
 fn session_id_from_path(path: &Path) -> Option<String> {
-    path.parent()?.parent()?.parent()?
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .filter(|n| n.starts_with("session_"))
+    path.ancestors()
+        .skip(1) // 跳过文件自身
+        .filter_map(|a| a.file_name().map(|n| n.to_string_lossy().to_string()))
+        .find(|n| n.starts_with("session_"))
 }
 
 /// 兼容 epoch 数字时间戳: >1e12 视为毫秒，否则为秒。
@@ -648,10 +649,13 @@ mod tests {
 
     #[test]
     fn parse_kimi_usage_record_real_format() {
-        let path = Path::new(
-            r"C:\Users\x\.kimi-code\sessions\wd_abc_123\session_04fe6dcc-4bf7-45f3-b0b0-2abcd85a631f\agents\main\wire.jsonl",
-        );
-        let record = parse_kimi_usage_record(REAL_USAGE_RECORD, path, None).unwrap();
+        let path = Path::new("sessions")
+            .join("wd_abc_123")
+            .join("session_04fe6dcc-4bf7-45f3-b0b0-2abcd85a631f")
+            .join("agents")
+            .join("main")
+            .join("wire.jsonl");
+        let record = parse_kimi_usage_record(REAL_USAGE_RECORD, &path, None).unwrap();
         assert_eq!(record.input_tokens, 2979);
         assert_eq!(record.output_tokens, 760);
         assert_eq!(record.cache_read_tokens, 19200);
