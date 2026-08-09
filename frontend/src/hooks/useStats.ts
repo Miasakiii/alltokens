@@ -61,7 +61,11 @@ export function useTrends(q?: StatsQuery) {
 }
 
 export function useHeatmap(q?: StatsQuery) {
-  return useQuery(() => api.heatmap({ days: 180, ...q }), [...filterDeps(q), q?.days]);
+  // 热力图固定展示 180 天总览，不随顶部日期范围(period/last)过滤——
+  // 否则 `last=7` 会作为硬过滤把 180 天网格里除最后 7 天外全部清空。
+  const { last: _last, ...rest } = q ?? {};
+  void _last;
+  return useQuery(() => api.heatmap({ days: 180, ...rest }), [...filterDeps(q), q?.days]);
 }
 
 export function useHourOfWeek(q?: StatsQuery) {

@@ -1,10 +1,9 @@
-import { Card, EmptyState, Meter, Skeleton } from './ui/primitives';
+import { Card, Meter, Skeleton } from './ui/primitives';
 import type { CodexQuotaSnapshot, CodexQuotaWindow } from '../api/types';
 import { useLang } from '../i18n';
 
 interface Props {
   snapshot: CodexQuotaSnapshot | null | undefined;
-  error?: string | null;
   loading: boolean;
 }
 
@@ -77,7 +76,7 @@ function QuotaWindow({ label, window }: { label: string; window: CodexQuotaWindo
   );
 }
 
-export default function CodexQuotaCard({ snapshot, error, loading }: Props) {
+export default function CodexQuotaCard({ snapshot, loading }: Props) {
   const zh = useLang().lang === 'zh';
 
   if (loading) {
@@ -91,30 +90,27 @@ export default function CodexQuotaCard({ snapshot, error, loading }: Props) {
     );
   }
 
-  if (!snapshot && !error) return null;
+  // 检测不到订阅（无 snapshot）时整卡隐藏，由 Dashboard 重新排布
+  if (!snapshot) return null;
 
   return (
     <Card
       title={zh ? '账户额度 · Codex' : 'Account Quota · Codex'}
       actions={
         <>
-          {snapshot?.plan_type && (
+          {snapshot.plan_type && (
             <span className="badge badge-accent uppercase">{snapshot.plan_type}</span>
           )}
-          {snapshot?.rate_limit_reached && (
+          {snapshot.rate_limit_reached && (
             <span className="badge badge-danger">{zh ? '已限流' : 'rate limited'}</span>
           )}
         </>
       }
     >
-      {snapshot ? (
-        <div className="grid grid-cols-2 gap-3">
-          <QuotaWindow label={zh ? '5 小时' : '5 Hours'} window={snapshot.five_hour} />
-          <QuotaWindow label={zh ? '7 天' : '7 Days'} window={snapshot.seven_day} />
-        </div>
-      ) : (
-        <EmptyState title={zh ? '额度不可用' : 'Quota unavailable'} hint={error ?? undefined} />
-      )}
+      <div className="grid grid-cols-2 gap-3">
+        <QuotaWindow label={zh ? '5 小时' : '5 Hours'} window={snapshot.five_hour} />
+        <QuotaWindow label={zh ? '7 天' : '7 Days'} window={snapshot.seven_day} />
+      </div>
     </Card>
   );
 }

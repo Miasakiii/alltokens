@@ -15,27 +15,38 @@ const WEEKDAY_LABELS_ZH = ['周日', '周一', '周二', '周三', '周四', '�
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 /**
- * Success 色透明度梯度（原 emerald 级阶的 token 化），
- * 与 TokenHeatmap 的 accent 梯度区分。level 0 为空格（surface-2）。
+ * Success 色阶（level 1-4），与 TokenHeatmap 的 accent 色阶区分。
+ * 用主题变量的 rgba 显式值而非 color-mix（兼容旧浏览器），
+ * 最低档也从 40% 起步，保证光/暗主题都有可辨识的对比度。
+ * level 0 为空格（surface-2）。
  */
-const LEVEL_OPACITY: Record<number, number> = { 1: 0.25, 2: 0.45, 3: 0.65, 4: 0.9 };
-
 function cellStyle(level: number): CSSProperties {
   if (level === 0) return { background: 'var(--app-surface-2)' };
-  return {
-    background: `color-mix(in srgb, var(--app-success) ${LEVEL_OPACITY[level] * 100}%, transparent)`,
-  };
+  return { background: `var(--heatmap-success-${level})` };
 }
 
 const CELL_CLASS =
-  'w-[14px] h-[14px] rounded-sm border border-[var(--app-surface-border)] group relative';
+  'flex-1 min-w-0 aspect-square rounded-sm border border-[var(--app-surface-border)] group relative';
 
-function intensityLevel(tokens: number, max: number): number {
-  if (tokens === 0 || max === 0) return 0;
-  const ratio = tokens / max;
-  if (ratio >= 0.75) return 4;
-  if (ratio >= 0.5) return 3;
-  if (ratio >= 0.25) return 2;
+/** 分位数等分色阶：把非零值按数量均分为 4 档（q1 < q2 < q3）。
+ *  数据严重右偏时（少数极端时段 + 大量小值时段），用 max / 分位数上限的
+ *  线性比值仍会把小值全部压成 level-1 几乎不可见；分位数等分保证每档
+ *  都有相当数量的格子，色阶分布均衡。 */
+function computeQuantiles(values: number[]): [number, number, number] {
+  const nonzero = values.filter((v) => v > 0).sort((a, b) => a - b);
+  if (nonzero.length === 0) return [1, 1, 1];
+  const q = (p: number) => {
+    const idx = Math.min(nonzero.length - 1, Math.max(0, Math.floor(nonzero.length * p)));
+    return Math.max(nonzero[idx], 1);
+  };
+  return [q(0.25), q(0.5), q(0.75)];
+}
+
+function intensityLevel(tokens: number, quantiles: [number, number, number]): number {
+  if (tokens === 0) return 0;
+  if (tokens >= quantiles[2]) return 4;
+  if (tokens >= quantiles[1]) return 3;
+  if (tokens >= quantiles[0]) return 2;
   return 1;
 }
 
@@ -77,7 +88,7 @@ export default function HourOfWeekHeatmap({ data, loading }: Props) {
 
   const lookup = new Map<string, HourOfWeekCell>();
   for (const c of data) lookup.set(`${c.weekday}-${c.hour}`, c);
-  const maxTokens = Math.max(...data.map((c) => c.total_tokens), 1);
+  const quantiles = computeQuantiles(data.map((c) => c.total_tokens));
   const activeSlots = data.filter((c) => c.total_tokens > 0).length;
 
   return (
@@ -92,29 +103,34 @@ export default function HourOfWeekHeatmap({ data, loading }: Props) {
       }
     >
       <div className="overflow-x-auto">
-        <div className="inline-flex flex-col gap-[3px] min-w-0">
-          <div className="flex gap-[3px] pl-9 text-[10px] text-faint h-4">
+        <div className="inline-flex w-full min-w-[720px] flex-col gap-[3px]">
+          <div className="flex h-4 gap-[3px] pl-9 text-[10px] text-faint">
             {HOURS.map((h) => (
-              <span key={h} className="w-[14px] shrink-0 text-center leading-4">
+              <span key={h} className="flex-1 text-center leading-4">
                 {h % 3 === 0 ? h : ''}
               </span>
             ))}
           </div>
 
           {weekdayLabels.map((label, weekday) => (
-            <div key={label} className="flex gap-[3px] items-center">
-              <span className="w-8 pr-1 text-right text-[10px] text-faint shrink-0">{label}</span>
+            <div key={label} className="flex min-w-0 flex-1 items-center gap-[3px]">
+              <span className="w-8 shrink-0 pr-1 text-right text-[10px] text-faint">{label}</span>
               {HOURS.map((hour) => {
                 const cell = lookup.get(`${weekday}-${hour}`);
                 const tokens = cell?.total_tokens ?? 0;
-                const level = intensityLevel(tokens, maxTokens);
+                const level = intensityLevel(tokens, quantiles);
                 return (
                   <div
                     key={hour}
                     className={CELL_CLASS}
                     style={cellStyle(level)}
                   >
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 theme-tooltip text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                    {/* 首行(周日)向上弹 tooltip 会被 overflow-x-auto 裁掉，翻转到下方显示 */}
+                    <div
+                      className={`absolute left-1/2 -translate-x-1/2 theme-tooltip text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 ${
+                        weekday === 0 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+                      }`}
+                    >
                       {label} {hour}:00
                       <br />
                       {formatTokens(tokens)} tokens ·{' '}
