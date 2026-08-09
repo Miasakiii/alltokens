@@ -11,15 +11,24 @@ export function useCodexQuota(refreshOnMount = false) {
     try {
       const response = await api.codexQuota(refresh);
       setData(response);
+      return response;
     } catch {
       setData(null);
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refetch(refreshOnMount);
+    (async () => {
+      // 先读缓存（快）；仅在无快照时才触发真实 RPC（spawn codex 子进程 ~6s），
+      // 避免每次挂载都等待 6 秒
+      const cached = await refetch(false);
+      if (refreshOnMount && !cached?.snapshot) {
+        await refetch(true);
+      }
+    })();
   }, [refetch, refreshOnMount]);
 
   return { data, loading, refetch };

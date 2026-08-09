@@ -14,25 +14,24 @@ function parseDate(date: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** 分位数等分色阶：把非零值按数量均分为 4 档（q1 < q2 < q3）。
- *  数据严重右偏时（少数几十亿 token 的峰值日 + 大量小值日），用
- *  max / 分位数上限的线性比值仍会把小值全部压成 level-1 几乎不可见；
- *  分位数等分保证每档都有相当数量的格子，色阶分布均衡。 */
-function computeQuantiles(values: number[]): [number, number, number] {
-  const nonzero = values.filter((v) => v > 0).sort((a, b) => a - b);
-  if (nonzero.length === 0) return [1, 1, 1];
-  const q = (p: number) => {
-    const idx = Math.min(nonzero.length - 1, Math.max(0, Math.floor(nonzero.length * p)));
-    return Math.max(nonzero[idx], 1);
-  };
-  return [q(0.25), q(0.5), q(0.75)];
+/** 对数色阶：按数量级把非零值映射到 1-4 档。
+ *  token 分布严重右偏（少量几十亿峰值 + 大量小值），分位/线性映射会让
+ *  小值天(如 2 万 vs 500 万, 差 240 倍)同色、最亮档横跨两个数量级。
+ *  用 log10 映射使每档 ≈ 一个数量级，数据表现更符合直觉。 */
+function computeLogBounds(values: number[]): { min: number; max: number } {
+  const nonzero = values.filter((v) => v > 0);
+  if (nonzero.length === 0) return { min: 1, max: 1 };
+  return { min: Math.min(...nonzero), max: Math.max(...nonzero) };
 }
 
-function intensityLevel(tokens: number, quantiles: [number, number, number]): number {
-  if (tokens === 0) return 0;
-  if (tokens >= quantiles[2]) return 4;
-  if (tokens >= quantiles[1]) return 3;
-  if (tokens >= quantiles[0]) return 2;
+function intensityLevel(tokens: number, bounds: { min: number; max: number }): number {
+  if (tokens === 0 || bounds.max <= bounds.min) return 0;
+  const ratio =
+    (Math.log10(tokens) - Math.log10(bounds.min)) /
+    (Math.log10(bounds.max) - Math.log10(bounds.min));
+  if (ratio >= 0.75) return 4;
+  if (ratio >= 0.5) return 3;
+  if (ratio >= 0.25) return 2;
   return 1;
 }
 
@@ -120,7 +119,7 @@ export default function TokenHeatmap({ data, loading }: Props) {
     );
   }
 
-  const quantiles = computeQuantiles(data.days.map((d) => d.total_tokens));
+  const bounds = computeLogBounds(data.days.map((d) => d.total_tokens));
   const columns = buildWeekColumns(data.days);
   const months = monthLabels(columns, zh ? 'zh-CN' : 'en-US');
   const activeDays = data.days.filter((d) => d.total_tokens > 0).length;
@@ -169,7 +168,7 @@ export default function TokenHeatmap({ data, loading }: Props) {
                     if (!cell) {
                       return <div key={`empty-${colIdx}-${rowIdx}`} className="aspect-square w-full" />;
                     }
-                    const level = intensityLevel(cell.total_tokens, quantiles);
+                    const level = intensityLevel(cell.total_tokens, bounds);
                     return (
                       <div
                         key={cell.date}

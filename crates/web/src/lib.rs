@@ -33,6 +33,25 @@ struct StatsQuery {
     last: Option<String>,
 }
 
+/// 把 `last` 值（"7d"/"30"/"0d"）转成 start_date 字符串。
+/// `0` 表示“今天”：从本地时区今天零点起；其余为 now - days。
+fn parse_last_value(s: &str) -> String {
+    let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
+    let date = if days == 0 {
+        let local = chrono::Local::now();
+        local
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    } else {
+        chrono::Utc::now() - chrono::Duration::days(days)
+    };
+    date.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
+}
+
 impl StatsQuery {
     fn to_filter(&self) -> RequestFilter {
         RequestFilter {
@@ -46,11 +65,7 @@ impl StatsQuery {
         }
     }
     fn parse_last(&self) -> Option<String> {
-        self.last.as_ref().map(|s| {
-            let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
-            let date = chrono::Utc::now() - chrono::Duration::days(days);
-            date.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
-        })
+        self.last.as_deref().map(parse_last_value)
     }
 }
 
@@ -80,11 +95,7 @@ impl HeatmapQuery {
     }
 
     fn parse_last(&self) -> Option<String> {
-        self.last.as_ref().map(|s| {
-            let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
-            let date = chrono::Utc::now() - chrono::Duration::days(days);
-            date.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
-        })
+        self.last.as_deref().map(parse_last_value)
     }
 
     fn period_days(&self) -> u32 {
@@ -137,11 +148,7 @@ impl ExportQuery {
     }
 
     fn parse_last(&self) -> Option<String> {
-        self.last.as_ref().map(|s| {
-            let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
-            let date = chrono::Utc::now() - chrono::Duration::days(days);
-            date.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
-        })
+        self.last.as_deref().map(parse_last_value)
     }
 }
 

@@ -81,7 +81,8 @@ export default function Dashboard() {
       : `${enDay(start, crossYear)} – ${enDay(end, crossYear)}`;
   }, [period, zh]);
 
-  const query = { last: period === '0d' ? undefined : period };
+  // 今天(0d)也发 last=0，让后端用“本地零点”过滤；发 undefined 会被当成全时段
+  const query = { last: period };
   const filterQuery = {
     ...query,
     provider: filters.provider || undefined,
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const monthlyOverview = useOverview({ start_date: monthStartISO() });
   const budget = useBudgetConfig();
   const subscription = useSubscriptionConfig();
+  // codex RPC 慢（~6s），钩子只在无缓存时触发；有缓存直接用，卡片上可手动刷新
   const codexQuota = useCodexQuota(true);
   const claudeQuota = useClaudeQuota(true);
   // 检测不到订阅（无 snapshot）的额度卡片自动隐藏，剩余卡片重新排布
@@ -246,10 +248,18 @@ export default function Dashboard() {
           }`}
         >
           {showCodexQuota && (
-            <CodexQuotaCard snapshot={codexQuota.data?.snapshot} loading={codexQuota.loading} />
+            <CodexQuotaCard
+              snapshot={codexQuota.data?.snapshot}
+              loading={codexQuota.loading}
+              onRefresh={() => codexQuota.refetch(true)}
+            />
           )}
           {showClaudeQuota && (
-            <ClaudeQuotaCard snapshot={claudeQuota.data?.snapshot} loading={claudeQuota.loading} />
+            <ClaudeQuotaCard
+              snapshot={claudeQuota.data?.snapshot}
+              loading={claudeQuota.loading}
+              onRefresh={() => claudeQuota.refetch(true)}
+            />
           )}
         </div>
       )}

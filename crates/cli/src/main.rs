@@ -2,7 +2,7 @@ use alltokens_core::model::{BudgetConfig, Pagination, RequestFilter};
 use alltokens_core::pricing::PricingEngine;
 use alltokens_core::storage::Storage;
 use anyhow::Result;
-use chrono::{Local, Utc};
+use chrono::Local;
 use clap::{Parser, Subcommand};
 
 mod logging;
@@ -263,10 +263,25 @@ fn get_db_path(cli_db: &Option<String>) -> std::path::PathBuf {
     alltokens_dir.join("data.db")
 }
 
+/// `0` 表示“今天”：从本地时区今天零点起；其余为 now - days。
+fn parse_last_date(days: i64) -> chrono::DateTime<chrono::Utc> {
+    if days == 0 {
+        let local = chrono::Local::now();
+        local
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    } else {
+        chrono::Utc::now() - chrono::Duration::days(days)
+    }
+}
 fn parse_date_range(last: &Option<String>) -> Option<String> {
     last.as_ref().map(|s| {
         let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
-        let date = Utc::now() - chrono::Duration::days(days);
+        let date = parse_last_date(days);
         date.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
     })
 }

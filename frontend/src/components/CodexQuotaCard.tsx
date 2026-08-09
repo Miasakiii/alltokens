@@ -5,6 +5,8 @@ import { useLang } from '../i18n';
 interface Props {
   snapshot: CodexQuotaSnapshot | null | undefined;
   loading: boolean;
+  /** 手动刷新额度（触发 codex RPC） */
+  onRefresh?: () => void;
 }
 
 /** 从窗口数据推导剩余百分比（与原 formatWindow 逻辑一致） */
@@ -76,7 +78,7 @@ function QuotaWindow({ label, window }: { label: string; window: CodexQuotaWindo
   );
 }
 
-export default function CodexQuotaCard({ snapshot, loading }: Props) {
+export default function CodexQuotaCard({ snapshot, loading, onRefresh }: Props) {
   const zh = useLang().lang === 'zh';
 
   if (loading) {
@@ -103,6 +105,19 @@ export default function CodexQuotaCard({ snapshot, loading }: Props) {
           )}
           {snapshot.rate_limit_reached && (
             <span className="badge badge-danger">{zh ? '已限流' : 'rate limited'}</span>
+          )}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-faint hover:text-foreground transition-colors"
+              title={zh ? '刷新额度' : 'Refresh quota'}
+              aria-label={zh ? '刷新额度' : 'Refresh quota'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            </button>
           )}
         </>
       }
