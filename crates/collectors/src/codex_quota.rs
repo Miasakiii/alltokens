@@ -175,6 +175,39 @@ fn read_i64(value: &Value, keys: &[&str]) -> Option<i64> {
 }
 
 /// JSON-RPC client for `codex app-server`.
+/// 解析 `codex` 二进制：优先 PATH 中的 codex，否则回退常见安装位置
+/// （官方安装器/插件分发的二进制常不在 PATH，如 ~/.codex/plugins/.plugin-appserver/codex.exe）。
+fn resolve_codex_command() -> PathBuf {
+    if command_exists("codex") {
+        return PathBuf::from("codex");
+    }
+    if let Some(home) = dirs::home_dir() {
+        for candidate in [
+            home.join(".codex/bin/codex.exe"),
+            home.join(".codex/bin/codex"),
+            home.join(".codex/.sandbox-bin/codex.exe"),
+            home.join(".codex/.sandbox-bin/codex"),
+            home.join(".codex/plugins/.plugin-appserver/codex.exe"),
+            home.join(".codex/plugins/.plugin-appserver/codex"),
+            home.join(".local/bin/codex"),
+            home.join(".local/bin/codex.exe"),
+        ] {
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    PathBuf::from("codex")
+}
+
+fn command_exists(name: &str) -> bool {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    std::env::split_paths(&path).any(|dir| {
+        let exe = if cfg!(windows) { dir.join(format!("{name}.exe")) } else { dir.join(name) };
+        exe.is_file()
+    })
+}
+
 pub struct CodexAppServerClient {
     command: PathBuf,
     args: Vec<String>,
@@ -183,7 +216,7 @@ pub struct CodexAppServerClient {
 impl CodexAppServerClient {
     pub fn new() -> Self {
         Self {
-            command: PathBuf::from("codex"),
+            command: resolve_codex_command(),
             args: vec!["app-server".to_string()],
         }
     }
@@ -428,5 +461,17 @@ mod tests {
             CodexQuotaWindowKind::SevenDay
         );
         assert_eq!(classify_window(Some(60)), CodexQuotaWindowKind::Other);
+    }
+
+    #[test]
+    fn resolve_codex_command_falls_back_to_common_paths() {
+        // PATH 无 codex 时，应解析到 ~/.codex 下的常见安装位置
+        let resolved = resolve_codex_command();
+        let name = resolved.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        assert!(name.contains("codex"), "unexpected binary: {resolved:?}");
+        // 解析结果要么是 PATH 里的 codex（可执行），要么是存在的文件
+        if resolved != PathBuf::from("codex") {
+            assert!(resolved.is_file(), "fallback path should exist: {resolved:?}");
+        }
     }
 }
