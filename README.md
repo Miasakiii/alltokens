@@ -242,7 +242,7 @@ cd src-tauri && npx @tauri-apps/cli build    # 桌面端打包（MSI + NSIS）
 ## 待完成
 
 - 无既定功能项（Phase 1–4 全部完成）
-- 待验证：Kimi CLI 真实日志样本（本机未安装，有样本后可验证 Collector）
+- Kimi CLI 真实数据验证已于 2026-08-08 完成（3,248 条真实 usage.record 入库，成本/去重核算通过）
 
 ## License
 

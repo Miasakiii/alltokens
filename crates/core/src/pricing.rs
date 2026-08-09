@@ -40,6 +40,12 @@ struct ModelPricing {
     context_window: u64,
 }
 
+/// 定价条目 key (provider/model)。统一小写：采集器侧 provider 可能带大小写
+/// (如 Proxy 记录的 "OpenAI"/"Moonshot")，定价表全小写，两侧归一化才能命中。
+fn normalize_key(provider: &str, model: &str) -> String {
+    format!("{}/{}", provider.to_ascii_lowercase(), model.to_ascii_lowercase())
+}
+
 /// 定价引擎
 pub struct PricingEngine {
     /// key = "provider/model"
@@ -66,7 +72,7 @@ impl PricingEngine {
         let mut entries = HashMap::new();
         for (provider, models) in &parsed.providers {
             for (model, pricing) in models {
-                let key = format!("{provider}/{model}");
+                let key = normalize_key(provider, model);
                 entries.insert(
                     key,
                     PricingEntry {
@@ -111,15 +117,15 @@ impl PricingEngine {
     /// 合并用户自定义定价 (覆盖内置)
     pub fn merge_user_pricing(&mut self, user_entries: Vec<PricingEntry>) {
         for entry in user_entries {
-            let key = format!("{}/{}", entry.provider, entry.model);
+            let key = normalize_key(&entry.provider, &entry.model);
             self.entries.insert(key, entry);
         }
     }
 
     /// 查找定价
     pub fn find(&self, provider: &str, model: &str) -> Option<&PricingEntry> {
-        // 精确匹配
-        let key = format!("{provider}/{model}");
+        // 精确匹配 (provider/model 均小写归一化)
+        let key = normalize_key(provider, model);
         if let Some(entry) = self.entries.get(&key) {
             return Some(entry);
         }
@@ -128,8 +134,8 @@ impl PricingEngine {
         // 例如 "claude-sonnet-4-20250514" -> 尝试 "claude-sonnet-4"
         // 用 rsplit_once 仅剥离最后一个 '-' 段并保持原有顺序
         // （旧实现用 rsplit().skip(1).join() 会把段序反转成 "4-sonnet-claude"，永不命中）
-        if let Some((model_base, _)) = model.rsplit_once('-') {
-            let key = format!("{provider}/{model_base}");
+        if let Some((model_base, _)) = model.to_ascii_lowercase().rsplit_once('-') {
+            let key = format!("{}/{model_base}", provider.to_ascii_lowercase());
             if let Some(entry) = self.entries.get(&key) {
                 return Some(entry);
             }
@@ -305,6 +311,35 @@ cache_create = 3.75
         engine.merge_user_pricing(vec![PricingEntry {
             provider: "openai".to_string(),
             model: "gpt-4o".to_string(),
+            input_per_mtok: 1.0,
+            output_per_mtok: 2.0,
+            cache_read_per_mtok: 0.0,
+            cache_create_per_mtok: 0.0,
+            context_window: 0,
+        }]);
+
+        let entry = engine.find("openai", "gpt-4o").unwrap();
+        assert!((entry.input_per_mtok - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn find_is_case_insensitive() {
+        let engine = PricingEngine::from_toml(SAMPLE_TOML).unwrap();
+        // 代理/日志采集器存的是 Provider::name() 的大写形式 (如 "OpenAI")
+        let entry = engine.find("OpenAI", "gpt-4o").unwrap();
+        assert!((entry.input_per_mtok - 2.50).abs() < f64::EPSILON);
+        let entry = engine
+            .find("ANTHROPIC", "claude-sonnet-4-20250514")
+            .unwrap();
+        assert!((entry.output_per_mtok - 15.00).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn user_override_case_insensitive_replaces_builtin() {
+        let mut engine = PricingEngine::from_toml(SAMPLE_TOML).unwrap();
+        engine.merge_user_pricing(vec![PricingEntry {
+            provider: "OpenAI".to_string(),
+            model: "GPT-4O".to_string(),
             input_per_mtok: 1.0,
             output_per_mtok: 2.0,
             cache_read_per_mtok: 0.0,
