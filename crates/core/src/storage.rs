@@ -1063,6 +1063,30 @@ impl Storage {
         )?;
         Ok(deleted)
     }
+
+    /// 清除采集数据并按需重置其扫描状态（`collector` 为 None 时清空全部）。
+    /// 删除对应 collector 的 last_scan 后，下次扫描会全量重导——用于修复
+    /// 采集器解析变更产生的脏数据（时间戳错位、字段错位等）。
+    pub fn purge_collector(&self, collector: Option<&str>) -> Result<usize, StorageError> {
+        let conn = self.conn.lock().unwrap();
+        let deleted = match collector {
+            Some(c) => {
+                conn.execute(
+                    "DELETE FROM collector_state WHERE collector_id = ?1",
+                    params![c],
+                )?;
+                conn.execute(
+                    "DELETE FROM api_requests WHERE collector = ?1",
+                    params![c],
+                )?
+            }
+            None => {
+                conn.execute("DELETE FROM collector_state", [])?;
+                conn.execute("DELETE FROM api_requests", [])?
+            }
+        };
+        Ok(deleted)
+    }
 }
 
 /// 计算两个 RFC3339 时间戳之间的秒数差（用于会话时长）。解析失败或负值时返回 0。
@@ -2248,5 +2272,53 @@ mod tests {
         let conn = rusqlite::Connection::open(&db_path).unwrap();
         assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
         assert_eq!(reasoning_column_count(&conn), 1);
+    }
+
+    #[test]
+    fn purge_collector_deletes_records_and_resets_scan_state() {
+        let storage = Storage::memory().unwrap();
+        storage
+            .insert_records(&[
+                sample_record(
+                    "2026-07-10T10:00:00Z",
+                    "codex",
+                    "openai",
+                    "gpt-4o",
+                    1000,
+                    500,
+                    0,
+                    0.01,
+                    Some(200),
+                ),
+                sample_record(
+                    "2026-07-10T11:00:00Z",
+                    "kimi",
+                    "moonshot",
+                    "kimi-code/k3",
+                    2000,
+                    1000,
+                    0,
+                    0.02,
+                    Some(200),
+                ),
+            ])
+            .unwrap();
+        storage
+            .set_collector_state("codex", "2026-07-10T12:00:00Z", "{}")
+            .unwrap();
+        storage
+            .set_collector_state("kimi", "2026-07-10T13:00:00Z", "{}")
+            .unwrap();
+
+        // 只清 codex：其记录与 last_scan 被清除，kimi 记录保留
+        assert_eq!(storage.purge_collector(Some("codex")).unwrap(), 1);
+        assert_eq!(storage.count().unwrap(), 1);
+        assert!(storage.get_last_scan("codex").unwrap().is_none());
+        assert!(storage.get_last_scan("kimi").unwrap().is_some());
+
+        // 全量清空
+        assert_eq!(storage.purge_collector(None).unwrap(), 1);
+        assert_eq!(storage.count().unwrap(), 0);
+        assert!(storage.get_last_scan("kimi").unwrap().is_none());
     }
 }
