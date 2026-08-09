@@ -27,3 +27,6 @@ frontend/tsconfig.tsbuildinfo
 PLAN.md
 STATUS.md
 SHARED_TASK_NOTES.md
+
+# 评审/规划工具产物（better-loop 评审报告、canvas 等，不入库）
+.qoder/
