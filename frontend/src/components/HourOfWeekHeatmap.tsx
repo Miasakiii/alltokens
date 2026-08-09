@@ -28,25 +28,23 @@ function cellStyle(level: number): CSSProperties {
 const CELL_CLASS =
   'flex-1 min-w-0 aspect-square rounded-sm border border-[var(--app-surface-border)] group relative';
 
-/** 分位数等分色阶：把非零值按数量均分为 4 档（q1 < q2 < q3）。
- *  数据严重右偏时（少数极端时段 + 大量小值时段），用 max / 分位数上限的
- *  线性比值仍会把小值全部压成 level-1 几乎不可见；分位数等分保证每档
- *  都有相当数量的格子，色阶分布均衡。 */
-function computeQuantiles(values: number[]): [number, number, number] {
-  const nonzero = values.filter((v) => v > 0).sort((a, b) => a - b);
-  if (nonzero.length === 0) return [1, 1, 1];
-  const q = (p: number) => {
-    const idx = Math.min(nonzero.length - 1, Math.max(0, Math.floor(nonzero.length * p)));
-    return Math.max(nonzero[idx], 1);
-  };
-  return [q(0.25), q(0.5), q(0.75)];
+/** 对数色阶：按数量级把非零值映射到 1-4 档。
+ *  token 分布严重右偏（少量极端时段 + 大量小值时段），分位/线性映射会让
+ *  小值时段同色、最亮档横跨两个数量级。用 log10 映射使每档 ≈ 一个数量级。 */
+function computeLogBounds(values: number[]): { min: number; max: number } {
+  const nonzero = values.filter((v) => v > 0);
+  if (nonzero.length === 0) return { min: 1, max: 1 };
+  return { min: Math.min(...nonzero), max: Math.max(...nonzero) };
 }
 
-function intensityLevel(tokens: number, quantiles: [number, number, number]): number {
-  if (tokens === 0) return 0;
-  if (tokens >= quantiles[2]) return 4;
-  if (tokens >= quantiles[1]) return 3;
-  if (tokens >= quantiles[0]) return 2;
+function intensityLevel(tokens: number, bounds: { min: number; max: number }): number {
+  if (tokens === 0 || bounds.max <= bounds.min) return 0;
+  const ratio =
+    (Math.log10(tokens) - Math.log10(bounds.min)) /
+    (Math.log10(bounds.max) - Math.log10(bounds.min));
+  if (ratio >= 0.75) return 4;
+  if (ratio >= 0.5) return 3;
+  if (ratio >= 0.25) return 2;
   return 1;
 }
 
@@ -88,7 +86,7 @@ export default function HourOfWeekHeatmap({ data, loading }: Props) {
 
   const lookup = new Map<string, HourOfWeekCell>();
   for (const c of data) lookup.set(`${c.weekday}-${c.hour}`, c);
-  const quantiles = computeQuantiles(data.map((c) => c.total_tokens));
+  const bounds = computeLogBounds(data.map((c) => c.total_tokens));
   const activeSlots = data.filter((c) => c.total_tokens > 0).length;
 
   return (
@@ -118,7 +116,7 @@ export default function HourOfWeekHeatmap({ data, loading }: Props) {
               {HOURS.map((hour) => {
                 const cell = lookup.get(`${weekday}-${hour}`);
                 const tokens = cell?.total_tokens ?? 0;
-                const level = intensityLevel(tokens, quantiles);
+                const level = intensityLevel(tokens, bounds);
                 return (
                   <div
                     key={hour}

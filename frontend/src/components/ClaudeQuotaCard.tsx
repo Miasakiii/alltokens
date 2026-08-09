@@ -5,6 +5,8 @@ import { useLang } from '../i18n';
 interface Props {
   snapshot: ClaudeQuotaSnapshot | null | undefined;
   loading: boolean;
+  /** 手动刷新额度 */
+  onRefresh?: () => void;
 }
 
 /** 从窗口数据推导剩余百分比（与原 formatWindow 逻辑一致） */
@@ -76,7 +78,7 @@ function QuotaWindow({ label, window }: { label: string; window: CodexQuotaWindo
   );
 }
 
-export default function ClaudeQuotaCard({ snapshot, loading }: Props) {
+export default function ClaudeQuotaCard({ snapshot, loading, onRefresh }: Props) {
   const zh = useLang().lang === 'zh';
 
   if (loading) {
@@ -97,9 +99,24 @@ export default function ClaudeQuotaCard({ snapshot, loading }: Props) {
     <Card
       title={zh ? '账户额度 · Claude Code' : 'Account Quota · Claude Code'}
       actions={
-        snapshot.is_stale ? (
-          <span className="badge badge-warn">{zh ? '数据过期' : 'stale'}</span>
-        ) : undefined
+        <>
+          {snapshot.is_stale ? (
+            <span className="badge badge-warn">{zh ? '数据过期' : 'stale'}</span>
+          ) : undefined}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-faint hover:text-foreground transition-colors"
+              title={zh ? '刷新额度' : 'Refresh quota'}
+              aria-label={zh ? '刷新额度' : 'Refresh quota'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            </button>
+          )}
+        </>
       }
     >
       <div className="grid grid-cols-2 gap-3">

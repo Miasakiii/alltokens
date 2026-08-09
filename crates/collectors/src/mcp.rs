@@ -235,10 +235,25 @@ impl McpServer {
 }
 
 /// 解析 `last: "7d"` 风格的时间窗为 ISO 起始时间（与 Web/CLI 口径一致）。
+/// `0` 表示“今天”：从本地时区今天零点起；其余为 now - days。
+fn parse_last_date(days: i64) -> chrono::DateTime<chrono::Utc> {
+    if days == 0 {
+        let local = chrono::Local::now();
+        local
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Local)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    } else {
+        chrono::Utc::now() - chrono::Duration::days(days)
+    }
+}
 fn parse_last(args: &Value) -> Option<String> {
     args.get("last").and_then(Value::as_str).map(|s| {
         let days: i64 = s.trim_end_matches('d').parse().unwrap_or(7);
-        (Utc::now() - chrono::Duration::days(days))
+        parse_last_date(days)
             .format("%Y-%m-%dT%H:%M:%S%:z")
             .to_string()
     })
