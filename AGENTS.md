@@ -51,5 +51,6 @@ Windows 下二进制路径为 `.\target\release\alltokens.exe`。
 ## 约定
 
 - `PLAN.md` / `STATUS.md` / `SHARED_TASK_NOTES.md` 是**私有规划笔记**，已被 `.gitignore` 排除，**不要提交入库**（本地存在属正常）。
-- 分支保护要求 CI（Rust clippy+test、Frontend typecheck+lint）通过后才能合入 `main`。
+- `.qoder/`（评审工具产物）、构建产物、日志、密钥/凭证类文件一律**不提交、不推送**。提交前用 `git status --short --untracked-files=all` 确认无多余文件混入；推送前确认本地无未推送的敏感内容。
+- 分支保护已在 `main` 启用（经典分支保护，无 ruleset）：合入须经 PR，必需状态检查 `Rust`、`Frontend`（对应 CI 的 clippy+test 与 typecheck+lint+test）通过后方可合并，且对管理员同样生效（`enforce_admins: true`）。
 - 遵循最小改动原则；新增 Collector 参考 `crates/collectors/src/` 现有实现与 `tests/fixtures/` 模式。

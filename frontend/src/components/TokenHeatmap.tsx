@@ -14,27 +14,38 @@ function parseDate(date: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function intensityLevel(tokens: number, max: number): number {
-  if (tokens === 0 || max === 0) return 0;
-  const ratio = tokens / max;
-  if (ratio >= 0.75) return 4;
-  if (ratio >= 0.5) return 3;
-  if (ratio >= 0.25) return 2;
+/** 分位数等分色阶：把非零值按数量均分为 4 档（q1 < q2 < q3）。
+ *  数据严重右偏时（少数几十亿 token 的峰值日 + 大量小值日），用
+ *  max / 分位数上限的线性比值仍会把小值全部压成 level-1 几乎不可见；
+ *  分位数等分保证每档都有相当数量的格子，色阶分布均衡。 */
+function computeQuantiles(values: number[]): [number, number, number] {
+  const nonzero = values.filter((v) => v > 0).sort((a, b) => a - b);
+  if (nonzero.length === 0) return [1, 1, 1];
+  const q = (p: number) => {
+    const idx = Math.min(nonzero.length - 1, Math.max(0, Math.floor(nonzero.length * p)));
+    return Math.max(nonzero[idx], 1);
+  };
+  return [q(0.25), q(0.5), q(0.75)];
+}
+
+function intensityLevel(tokens: number, quantiles: [number, number, number]): number {
+  if (tokens === 0) return 0;
+  if (tokens >= quantiles[2]) return 4;
+  if (tokens >= quantiles[1]) return 3;
+  if (tokens >= quantiles[0]) return 2;
   return 1;
 }
 
-/** Accent 色透明度梯度：level 0 为空格（surface-2），1-4 逐级加深。 */
-const LEVEL_OPACITY: Record<number, number> = { 1: 0.25, 2: 0.45, 3: 0.65, 4: 0.9 };
-
+/** Accent 色阶（level 1-4）：浅色主题为深琥珀、暗色主题为亮琥珀。
+ *  用主题变量的 rgba 显式值而非 color-mix（兼容旧浏览器），
+ *  故最低档也从 40% 起步，保证光/暗主题都有可辨识的对比度。 */
 function cellStyle(level: number): CSSProperties {
   if (level === 0) return { background: 'var(--app-surface-2)' };
-  return {
-    background: `color-mix(in srgb, var(--app-accent) ${LEVEL_OPACITY[level] * 100}%, transparent)`,
-  };
+  return { background: `var(--heatmap-accent-${level})` };
 }
 
 const CELL_CLASS =
-  'w-[11px] h-[11px] rounded-sm border border-[var(--app-surface-border)] group relative';
+  'w-full aspect-square rounded-sm border border-[var(--app-surface-border)] group relative';
 
 const WEEKDAY_LABELS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** 周日开头的单字标签（与 getDay() 索引一致），适配 11px 窄行。 */
@@ -109,7 +120,7 @@ export default function TokenHeatmap({ data, loading }: Props) {
     );
   }
 
-  const maxTokens = Math.max(...data.days.map((d) => d.total_tokens), 1);
+  const quantiles = computeQuantiles(data.days.map((d) => d.total_tokens));
   const columns = buildWeekColumns(data.days);
   const months = monthLabels(columns, zh ? 'zh-CN' : 'en-US');
   const activeDays = data.days.filter((d) => d.total_tokens > 0).length;
@@ -126,43 +137,51 @@ export default function TokenHeatmap({ data, loading }: Props) {
       }
     >
       <div className="overflow-x-auto">
-        <div className="inline-flex flex-col gap-1 min-w-0">
-          <div className="flex gap-1 pl-8 text-[10px] text-faint h-4">
+        <div className="inline-flex w-full min-w-[720px] flex-col gap-1">
+          <div className="relative ml-10 h-4 w-[calc(100%-2.5rem)] text-[10px] text-faint">
             {months.map((m) => (
               <span
                 key={`${m.label}-${m.index}`}
-                className="shrink-0"
-                style={{ marginLeft: m.index === 0 ? 0 : `${m.index * 14 - (months[0]?.index ?? 0) * 14}px` }}
+                className="absolute top-0 whitespace-nowrap"
+                style={{ left: `${(m.index / columns.length) * 100}%` }}
               >
                 {m.label}
               </span>
             ))}
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-[3px] text-[10px] text-faint pr-1 pt-[2px]">
+          <div className="flex min-w-0 flex-1 gap-2">
+            <div className="flex w-8 shrink-0 flex-col gap-[3px] pr-1 text-[10px] text-faint">
               {weekdayLabels.map((label, i) => (
-                <span key={label} className={`h-[11px] leading-[11px] ${i % 2 === 0 ? 'opacity-0 sm:opacity-100' : 'opacity-0'}`}>
+                <span
+                  key={label}
+                  className={`flex-1 leading-none ${i % 2 === 0 ? 'opacity-0 sm:opacity-100' : 'opacity-0'}`}
+                >
                   {label}
                 </span>
               ))}
             </div>
 
-            <div className="flex gap-[3px]">
+            <div className="flex min-w-0 flex-1 gap-[3px]">
               {columns.map((col, colIdx) => (
-                <div key={col.weekStart + colIdx} className="flex flex-col gap-[3px]">
+                <div key={col.weekStart + colIdx} className="flex min-w-0 flex-1 flex-col gap-[3px]">
                   {col.cells.map((cell, rowIdx) => {
                     if (!cell) {
-                      return <div key={`empty-${colIdx}-${rowIdx}`} className="w-[11px] h-[11px]" />;
+                      return <div key={`empty-${colIdx}-${rowIdx}`} className="aspect-square w-full" />;
                     }
-                    const level = intensityLevel(cell.total_tokens, maxTokens);
+                    const level = intensityLevel(cell.total_tokens, quantiles);
                     return (
                       <div
                         key={cell.date}
                         className={CELL_CLASS}
                         style={cellStyle(level)}
                       >
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 theme-tooltip text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                        {/* 首行格子向上弹 tooltip 会被 overflow-x-auto 裁掉，翻转到下方显示 */}
+                        <div
+                          className={`absolute left-1/2 -translate-x-1/2 theme-tooltip text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 ${
+                            rowIdx === 0 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+                          }`}
+                        >
                           {cell.date}
                           <br />
                           {formatTokens(cell.total_tokens)} tokens · ${cell.total_cost_usd.toFixed(4)}

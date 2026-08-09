@@ -125,7 +125,8 @@ impl<'de> Deserialize<'de> for TokenUsageSnapshot {
 struct SqliteThread {
     id: String,
     tokens_used: u64,
-    updated_at: Option<String>,
+    /// unix 秒或毫秒时间戳（对应 threads.updated_at / updated_at_ms，均为 INTEGER）
+    updated_at_epoch: Option<i64>,
     model: Option<String>,
 }
 
@@ -270,6 +271,15 @@ fn parse_timestamp(ts: &str) -> Option<DateTime<Utc>> {
         .or_else(|_| DateTime::parse_from_str(ts, "%Y-%m-%dT%H:%M:%S%.fZ"))
         .ok()
         .map(|dt| dt.with_timezone(&Utc))
+}
+
+/// 兼容整数 epoch 时间戳：>1e12 视为毫秒，否则为秒。
+fn epoch_to_utc(epoch: i64) -> Option<DateTime<Utc>> {
+    if epoch.abs() > 1_000_000_000_000 {
+        DateTime::from_timestamp_millis(epoch)
+    } else {
+        DateTime::from_timestamp(epoch, 0)
+    }
 }
 
 fn delta_snapshot(prev: &TokenUsageSnapshot, curr: &TokenUsageSnapshot) -> TokenUsageSnapshot {
@@ -659,35 +669,33 @@ fn read_sqlite_threads(db_path: &Path) -> Result<Vec<SqliteThread>> {
     let conn = Connection::open(db_path)?;
     let mut threads = Vec::new();
 
-    // Schema may vary; try common column names.
-    let sql = "SELECT id, tokens_used, updated_at, model FROM threads WHERE tokens_used > 0";
-    let mut stmt = match conn.prepare(sql) {
+    // 真实 schema 的 updated_at / updated_at_ms 都是 INTEGER epoch（秒 / 毫秒），
+    // 不是字符串。旧实现按 String 读取导致 rusqlite 整数→字符串转换失败 → None，
+    // 全部回退 Utc::now()，把历史会话记成扫描时刻。优先 updated_at_ms（毫秒），
+    // 旧版本无该列时回退 updated_at（秒）；再回退到无 model 列的最简 schema。
+    let sql_ms = "SELECT id, tokens_used, updated_at_ms, model FROM threads WHERE tokens_used > 0";
+    let sql_sec = "SELECT id, tokens_used, updated_at, model FROM threads WHERE tokens_used > 0";
+    let sql_sec_no_model = "SELECT id, tokens_used, updated_at FROM threads WHERE tokens_used > 0";
+
+    let mut stmt = match conn.prepare(sql_ms) {
         Ok(s) => s,
-        Err(_) => {
-            // Fallback without model column
-            let sql = "SELECT id, tokens_used, updated_at FROM threads WHERE tokens_used > 0";
-            let mut stmt = conn.prepare(sql)?;
-            let rows = stmt.query_map([], |row| {
-                Ok(SqliteThread {
-                    id: row.get(0)?,
-                    tokens_used: row.get::<_, i64>(1)? as u64,
-                    updated_at: row.get(2).ok(),
-                    model: None,
-                })
-            })?;
-            for row in rows.flatten() {
-                threads.push(row);
-            }
-            return Ok(threads);
-        }
+        Err(_) => match conn.prepare(sql_sec) {
+            Ok(s) => s,
+            Err(_) => conn.prepare(sql_sec_no_model)?,
+        },
     };
 
+    let has_model = stmt.column_count() > 3;
     let rows = stmt.query_map([], |row| {
         Ok(SqliteThread {
             id: row.get(0)?,
             tokens_used: row.get::<_, i64>(1)? as u64,
-            updated_at: row.get(2).ok(),
-            model: row.get(3).ok(),
+            updated_at_epoch: row.get::<_, i64>(2).ok(),
+            model: if has_model {
+                row.get::<_, String>(3).ok()
+            } else {
+                None
+            },
         })
     })?;
 
@@ -729,9 +737,8 @@ fn collect_sqlite_fallback(
             seen_threads.insert(thread.id.clone(), true);
 
             let timestamp = thread
-                .updated_at
-                .as_deref()
-                .and_then(parse_timestamp)
+                .updated_at_epoch
+                .and_then(epoch_to_utc)
                 .unwrap_or_else(Utc::now);
 
             if let Some(since) = since {
@@ -907,7 +914,7 @@ mod tests {
         let db_path = dir.path().join("state_5.sqlite");
         let conn = Connection::open(&db_path).unwrap();
         conn.execute_batch(
-            "CREATE TABLE threads (id TEXT PRIMARY KEY, tokens_used INTEGER, updated_at TEXT, model TEXT);",
+            "CREATE TABLE threads (id TEXT PRIMARY KEY, tokens_used INTEGER, updated_at INTEGER, model TEXT);",
         )
         .unwrap();
         conn.execute(
@@ -915,7 +922,7 @@ mod tests {
             rusqlite::params![
                 "thread-coarse-1",
                 4200_i64,
-                "2026-07-10T12:00:00Z",
+                1_783_584_000_i64, // 2026-07-09T16:00:00Z
                 "gpt-4o-mini"
             ],
         )
@@ -932,5 +939,70 @@ mod tests {
         assert_eq!(records[0].total_tokens, 4200);
         assert_eq!(records[0].notes.as_deref(), Some(NOTE_COARSE));
         assert_eq!(records[0].session_id.as_deref(), Some("thread-coarse-1"));
+        // INTEGER epoch 被正确解析，而不是回退为扫描时刻
+        assert_eq!(
+            records[0].timestamp,
+            DateTime::from_timestamp(1_783_584_000, 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn sqlite_fallback_reads_millis_and_legacy_schema() {
+        // 真实 schema: updated_at_ms 毫秒 INTEGER
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("state_5.sqlite");
+        let conn = Connection::open(&db_path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE threads (id TEXT PRIMARY KEY, tokens_used INTEGER, updated_at INTEGER, model TEXT, updated_at_ms INTEGER);",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO threads (id, tokens_used, updated_at, updated_at_ms, model) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "thread-ms-1",
+                9500_i64,
+                1_783_584_000_i64,
+                1_783_584_000_000_i64,
+                "gpt-4o"
+            ],
+        )
+        .unwrap();
+
+        let records = collect_sqlite_fallback(
+            &[dir.path().to_path_buf()],
+            None,
+            &HashSet::new(),
+        )
+        .unwrap();
+        assert_eq!(records.len(), 1);
+        // 优先 updated_at_ms（毫秒）
+        assert_eq!(
+            records[0].timestamp,
+            DateTime::from_timestamp_millis(1_783_584_000_000).unwrap()
+        );
+
+        // 最简旧 schema：无 updated_at_ms / model 列，回退 updated_at（秒）
+        let dir2 = tempfile::tempdir().unwrap();
+        let db2 = dir2.path().join("state_5.sqlite");
+        let conn2 = Connection::open(&db2).unwrap();
+        conn2
+            .execute_batch(
+                "CREATE TABLE threads (id TEXT PRIMARY KEY, tokens_used INTEGER, updated_at INTEGER);",
+            )
+            .unwrap();
+        conn2
+            .execute(
+                "INSERT INTO threads (id, tokens_used, updated_at) VALUES (?1, ?2, ?3)",
+                rusqlite::params!["thread-sec-1", 500_i64, 1_783_584_000_i64],
+            )
+            .unwrap();
+        let records2 = collect_sqlite_fallback(&[dir2.path().to_path_buf()], None, &HashSet::new())
+            .unwrap();
+        assert_eq!(records2.len(), 1);
+        assert_eq!(
+            records2[0].timestamp,
+            DateTime::from_timestamp(1_783_584_000, 0).unwrap()
+        );
+        assert_eq!(records2[0].model, "");
     }
 }

@@ -144,6 +144,13 @@ enum Commands {
         action: BudgetAction,
     },
 
+    /// 清除已采集的数据（配合重扫用于修复采集器解析变更后的脏数据）
+    Purge {
+        /// 只清除指定采集器 (如 codex)；省略则清空全部记录
+        #[arg(long)]
+        collector: Option<String>,
+    },
+
     /// 探测采集器数据源 (不写入数据库)
     Probe {
         /// 采集器 ID (省略则列出全部状态): codex | claude | cursor | opencode | windsurf | ...
@@ -864,6 +871,15 @@ async fn main() -> Result<()> {
                 },
             }
         },
+
+        Commands::Purge { collector } => {
+            let storage = Storage::open(&db_path)?;
+            let deleted = storage.purge_collector(collector.as_deref())?;
+            match &collector {
+                Some(c) => println!("🗑 Purged {deleted} records from collector '{c}' (last_scan reset, re-run 'scan' to rebuild)"),
+                None => println!("🗑 Purged {deleted} records (all collectors reset, re-run 'scan' to rebuild)"),
+            }
+        }
 
         Commands::Probe { collector, json } => {
             match collector {

@@ -6,7 +6,7 @@ use crate::invocation::{
 use crate::model::*;
 use crate::pricing::PricingEngine;
 use crate::project::extract_project_name;
-use crate::schema::SCHEMA;
+use crate::schema::{self, SCHEMA};
 use chrono::{NaiveDate, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
@@ -47,11 +47,8 @@ impl Storage {
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
         conn.execute_batch(SCHEMA)?;
-        // Migration: add reasoning_tokens column if missing (for existing DBs)
-        let _ = conn.execute(
-            "ALTER TABLE api_requests ADD COLUMN reasoning_tokens INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
+        // 基于 PRAGMA user_version 的递增迁移 (旧库升级)
+        schema::migrate(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
@@ -61,6 +58,7 @@ impl Storage {
     pub fn memory() -> Result<Self, StorageError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA)?;
+        schema::migrate(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
@@ -1063,6 +1061,30 @@ impl Storage {
             "DELETE FROM api_requests WHERE timestamp < ?1",
             params![cutoff_iso],
         )?;
+        Ok(deleted)
+    }
+
+    /// 清除采集数据并按需重置其扫描状态（`collector` 为 None 时清空全部）。
+    /// 删除对应 collector 的 last_scan 后，下次扫描会全量重导——用于修复
+    /// 采集器解析变更产生的脏数据（时间戳错位、字段错位等）。
+    pub fn purge_collector(&self, collector: Option<&str>) -> Result<usize, StorageError> {
+        let conn = self.conn.lock().unwrap();
+        let deleted = match collector {
+            Some(c) => {
+                conn.execute(
+                    "DELETE FROM collector_state WHERE collector_id = ?1",
+                    params![c],
+                )?;
+                conn.execute(
+                    "DELETE FROM api_requests WHERE collector = ?1",
+                    params![c],
+                )?
+            }
+            None => {
+                conn.execute("DELETE FROM collector_state", [])?;
+                conn.execute("DELETE FROM api_requests", [])?
+            }
+        };
         Ok(deleted)
     }
 }
@@ -2111,5 +2133,192 @@ mod tests {
 
         let restored = Storage::open(&snapshot).unwrap();
         assert_eq!(restored.count().unwrap(), 1);
+    }
+
+    /// v0 时代的旧 schema：api_requests 尚无 reasoning_tokens 列
+    const LEGACY_V0_SCHEMA: &str = r#"
+    CREATE TABLE IF NOT EXISTS api_requests (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp         TEXT NOT NULL,
+        collector         TEXT NOT NULL,
+        tool              TEXT,
+        provider          TEXT NOT NULL,
+        model             TEXT NOT NULL,
+        input_tokens      INTEGER NOT NULL DEFAULT 0,
+        output_tokens     INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+        total_tokens      INTEGER NOT NULL DEFAULT 0,
+        cost_usd          REAL NOT NULL DEFAULT 0.0,
+        cost_cny          REAL NOT NULL DEFAULT 0.0,
+        latency_ms        INTEGER,
+        is_stream         INTEGER NOT NULL DEFAULT 0,
+        status_code       INTEGER,
+        session_id        TEXT,
+        request_id        TEXT,
+        source_file       TEXT,
+        raw_json          TEXT,
+        notes             TEXT
+    );
+    "#;
+
+    fn user_version(conn: &rusqlite::Connection) -> i64 {
+        conn.query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    fn reasoning_column_count(conn: &rusqlite::Connection) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('api_requests') WHERE name='reasoning_tokens'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn fresh_db_gets_current_schema_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("fresh.db");
+        drop(Storage::open(&db_path).unwrap());
+
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+    }
+
+    #[test]
+    fn old_schema_db_upgrades_on_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("legacy.db");
+        {
+            let conn = rusqlite::Connection::open(&db_path).unwrap();
+            conn.execute_batch(LEGACY_V0_SCHEMA).unwrap();
+            conn.execute(
+                "INSERT INTO api_requests (timestamp, collector, provider, model, input_tokens, output_tokens, total_tokens)
+                 VALUES ('2026-07-10T10:00:00Z','codex','openai','gpt-4o',100,50,150)",
+                [],
+            )
+            .unwrap();
+            assert_eq!(user_version(&conn), 0);
+        }
+
+        // 旧库打开后升级成功：旧数据保留，新列可写入
+        let storage = Storage::open(&db_path).unwrap();
+        assert_eq!(storage.count().unwrap(), 1);
+        storage
+            .insert_record(&sample_record(
+                "2026-07-11T10:00:00Z", "codex", "openai", "gpt-4o", 200, 60, 0, 0.02, None,
+            ))
+            .unwrap();
+        assert_eq!(storage.count().unwrap(), 2);
+        drop(storage);
+
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+        // 旧行的新列回填默认值 0
+        let old_row_reasoning: i64 = conn
+            .query_row(
+                "SELECT reasoning_tokens FROM api_requests WHERE input_tokens = 100",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(old_row_reasoning, 0);
+    }
+
+    #[test]
+    fn migrate_is_idempotent_per_step() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(LEGACY_V0_SCHEMA).unwrap();
+
+        schema::migrate(&conn).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+
+        // 已升级的库重复执行迁移：无副作用
+        schema::migrate(&conn).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+
+        // 模拟中断后重放：重置版本号后每一步重跑仍成功且无副作用
+        conn.execute_batch("PRAGMA user_version = 0").unwrap();
+        schema::migrate(&conn).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+    }
+
+    #[test]
+    fn reopening_upgraded_db_has_no_side_effects() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("reopen.db");
+        {
+            let conn = rusqlite::Connection::open(&db_path).unwrap();
+            conn.execute_batch(LEGACY_V0_SCHEMA).unwrap();
+            conn.execute(
+                "INSERT INTO api_requests (timestamp, collector, provider, model, input_tokens, output_tokens, total_tokens)
+                 VALUES ('2026-07-10T10:00:00Z','codex','openai','gpt-4o',100,50,150)",
+                [],
+            )
+            .unwrap();
+        }
+
+        // 多次打开：行数与版本号保持稳定
+        for _ in 0..3 {
+            let storage = Storage::open(&db_path).unwrap();
+            assert_eq!(storage.count().unwrap(), 1);
+        }
+        let conn = rusqlite::Connection::open(&db_path).unwrap();
+        assert_eq!(user_version(&conn), schema::SCHEMA_VERSION);
+        assert_eq!(reasoning_column_count(&conn), 1);
+    }
+
+    #[test]
+    fn purge_collector_deletes_records_and_resets_scan_state() {
+        let storage = Storage::memory().unwrap();
+        storage
+            .insert_records(&[
+                sample_record(
+                    "2026-07-10T10:00:00Z",
+                    "codex",
+                    "openai",
+                    "gpt-4o",
+                    1000,
+                    500,
+                    0,
+                    0.01,
+                    Some(200),
+                ),
+                sample_record(
+                    "2026-07-10T11:00:00Z",
+                    "kimi",
+                    "moonshot",
+                    "kimi-code/k3",
+                    2000,
+                    1000,
+                    0,
+                    0.02,
+                    Some(200),
+                ),
+            ])
+            .unwrap();
+        storage
+            .set_collector_state("codex", "2026-07-10T12:00:00Z", "{}")
+            .unwrap();
+        storage
+            .set_collector_state("kimi", "2026-07-10T13:00:00Z", "{}")
+            .unwrap();
+
+        // 只清 codex：其记录与 last_scan 被清除，kimi 记录保留
+        assert_eq!(storage.purge_collector(Some("codex")).unwrap(), 1);
+        assert_eq!(storage.count().unwrap(), 1);
+        assert!(storage.get_last_scan("codex").unwrap().is_none());
+        assert!(storage.get_last_scan("kimi").unwrap().is_some());
+
+        // 全量清空
+        assert_eq!(storage.purge_collector(None).unwrap(), 1);
+        assert_eq!(storage.count().unwrap(), 0);
+        assert!(storage.get_last_scan("kimi").unwrap().is_none());
     }
 }

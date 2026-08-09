@@ -98,6 +98,9 @@ export default function Dashboard() {
   const subscription = useSubscriptionConfig();
   const codexQuota = useCodexQuota(true);
   const claudeQuota = useClaudeQuota(true);
+  // 检测不到订阅（无 snapshot）的额度卡片自动隐藏，剩余卡片重新排布
+  const showCodexQuota = codexQuota.loading || !!codexQuota.data?.snapshot;
+  const showClaudeQuota = claudeQuota.loading || !!claudeQuota.data?.snapshot;
   const { contextWindowFor } = usePricingModels();
   const providers = useProviders(query);
   const models = useModels(query);
@@ -235,19 +238,21 @@ export default function Dashboard() {
         loading={budget.loading || monthlyOverview.loading}
       />
 
-      {/* Quota — plan usage for Codex / Claude */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <CodexQuotaCard
-          snapshot={codexQuota.data?.snapshot}
-          error={codexQuota.data?.error}
-          loading={codexQuota.loading}
-        />
-        <ClaudeQuotaCard
-          snapshot={claudeQuota.data?.snapshot}
-          error={claudeQuota.data?.error}
-          loading={claudeQuota.loading}
-        />
-      </div>
+      {/* Quota — plan usage for Codex / Claude（无订阅的卡片自动隐藏，剩余重新排布） */}
+      {(showCodexQuota || showClaudeQuota) && (
+        <div
+          className={`grid gap-4 ${
+            showCodexQuota && showClaudeQuota ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
+          }`}
+        >
+          {showCodexQuota && (
+            <CodexQuotaCard snapshot={codexQuota.data?.snapshot} loading={codexQuota.loading} />
+          )}
+          {showClaudeQuota && (
+            <ClaudeQuotaCard snapshot={claudeQuota.data?.snapshot} loading={claudeQuota.loading} />
+          )}
+        </div>
+      )}
 
       {/* Overview metrics */}
       <StatsCards stats={overview.data} loading={overview.loading} />

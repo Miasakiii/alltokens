@@ -167,6 +167,33 @@ input = 6.00
 output = 6.00
 context_window = 131072
 
+# Kimi K3 (2026-07 发布): 输入 $3.00/M (未命中缓存), $0.30/M (命中缓存), 输出 $15.00/M
+[moonshot."kimi-k3"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+context_window = 1048576
+
+[moonshot."moonshot-cn/kimi-k3"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+context_window = 1048576
+
+# Kimi Code CLI 默认模型 (订阅制，按 Kimi K3 API 等价费率折算)
+[moonshot."kimi-code/k3"]
+input = 3.00
+output = 15.00
+cache_read = 0.30
+context_window = 1048576
+
+# Kimi Code CLI 高速编码模型 (按 Kimi K2 系列公开费率: $0.60/$2.50/$0.15)
+[moonshot."moonshot-cn/kimi-k2.7-code-highspeed"]
+input = 0.60
+output = 2.50
+cache_read = 0.15
+context_window = 262144
+
 # ════════════════════════════════════════
 # MiniMax
 # ════════════════════════════════════════

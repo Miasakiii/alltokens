@@ -56,6 +56,7 @@ alltokens pricing list                  # 查看定价表
 alltokens export [--format csv|json|pdf] [-o file]  # 导出数据（pdf 为打印就绪 HTML 报表）
 alltokens budget set --monthly 100      # 设置月预算 (USD)
 alltokens budget status                 # 预算使用情况
+alltokens purge [--collector codex]     # 清除采集数据并重置其扫描状态（配合重扫修复解析变更后的脏数据）
 alltokens serve [--port 3210]           # 启动 Web UI + API（含后台自动扫描）
 alltokens daemon [--interval 15] [--once]  # 后台常驻：定时扫描 + 按保留天数自动归档
 alltokens mcp                           # MCP Server (stdio)：AI 工具查询统计 / 推送 usage
@@ -242,7 +243,7 @@ cd src-tauri && npx @tauri-apps/cli build    # 桌面端打包（MSI + NSIS）
 ## 待完成
 
 - 无既定功能项（Phase 1–4 全部完成）
-- 待验证：Kimi CLI 真实日志样本（本机未安装，有样本后可验证 Collector）
+- Kimi CLI 真实数据验证已于 2026-08-08 完成（3,248 条真实 usage.record 入库，成本/去重核算通过）
 
 ## License
 

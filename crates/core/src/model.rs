@@ -318,6 +318,8 @@ impl Provider {
             _ if model.starts_with("deepseek") => Self::DeepSeek,
             _ if model.starts_with("qwen") => Self::Qwen,
             _ if model.starts_with("moonshot") => Self::Moonshot,
+            // Kimi Code CLI 的模型名不带 moonshot 前缀 (如 kimi-code/k3)
+            _ if model.starts_with("kimi") => Self::Moonshot,
             _ if model.starts_with("glm") || model.starts_with("chatglm") => Self::GLM,
             _ if model.starts_with("doubao") => Self::Volcengine,
             _ if model.starts_with("yi-") => Self::Yi,

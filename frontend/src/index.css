@@ -49,6 +49,16 @@ html[data-theme="light"] {
   --app-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 4px 16px rgba(28, 25, 23, 0.04);
   --app-ring: rgba(180, 83, 9, 0.35);
 
+  /* 热力图色阶：accent/success 的 rgba 显式形式（不用 color-mix，兼容所有浏览器） */
+  --heatmap-accent-1: rgba(180, 83, 9, 0.4);
+  --heatmap-accent-2: rgba(180, 83, 9, 0.6);
+  --heatmap-accent-3: rgba(180, 83, 9, 0.8);
+  --heatmap-accent-4: rgb(180, 83, 9);
+  --heatmap-success-1: rgba(77, 124, 15, 0.4);
+  --heatmap-success-2: rgba(77, 124, 15, 0.6);
+  --heatmap-success-3: rgba(77, 124, 15, 0.8);
+  --heatmap-success-4: rgb(77, 124, 15);
+
   --scrollbar-track: #ece8df;
   --scrollbar-thumb: #c9c2b2;
 }
@@ -94,6 +104,16 @@ html[data-theme="dark"] {
 
   --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   --app-ring: rgba(224, 145, 63, 0.4);
+
+  /* 热力图色阶：accent/success 的 rgba 显式形式（不用 color-mix，兼容所有浏览器） */
+  --heatmap-accent-1: rgba(224, 145, 63, 0.4);
+  --heatmap-accent-2: rgba(224, 145, 63, 0.6);
+  --heatmap-accent-3: rgba(224, 145, 63, 0.8);
+  --heatmap-accent-4: rgb(224, 145, 63);
+  --heatmap-success-1: rgba(163, 193, 74, 0.4);
+  --heatmap-success-2: rgba(163, 193, 74, 0.6);
+  --heatmap-success-3: rgba(163, 193, 74, 0.8);
+  --heatmap-success-4: rgb(163, 193, 74);
 
   --scrollbar-track: #1e1b17;
   --scrollbar-thumb: #3d382e;
