@@ -41,7 +41,7 @@ Windows 下将 `./target/release/alltokens` 替换为 `.\target\release\alltoken
 
 OpenAI · Anthropic · DeepSeek · Qwen · Moonshot · MiniMax · GLM · Volcengine · SiliconFlow · StepFun · Baichuan · Yi · Groq · Google · xAI · Mistral
 
-内置 55 个模型定价、16 个 Provider（`pricing/builtin.toml`），支持用户自定义覆盖。
+内置 59 个模型定价、16 个 Provider（`pricing/builtin.toml`），支持用户自定义覆盖。
 
 ## CLI 命令
 
@@ -203,7 +203,7 @@ alltokens/
 │   └── dist/                    # 构建产物（嵌入 web crate）
 ├── src-tauri/                   # Tauri 2.x 桌面端
 ├── pricing/
-│   └── builtin.toml             # 55 模型定价表
+│   └── builtin.toml             # 59 模型定价表
 ├── STATUS.md                    # 完成度分析
 └── PLAN.md                      # 架构与开发计划
 ```
@@ -211,11 +211,11 @@ alltokens/
 ## 构建与验证
 
 ```bash
-cargo test --workspace             # 167 个测试
+cargo test --workspace             # 185 个测试
 cd src-tauri && cargo test         # 3 个测试（托盘额度）
 cd frontend && npm install && npm run build  # 前端依赖 + 构建
 cd src-tauri && npx @tauri-apps/cli build    # 桌面端打包（MSI + NSIS）
-# 合计 170 个测试
+# 合计 188 个测试
 ```
 
 ## 开发循环
