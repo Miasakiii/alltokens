@@ -29,11 +29,3 @@ export function useBudgetConfig() {
 
   return { data, loading, error, refetch, save };
 }
-
-/** First day of current month as ISO start_date for overview queries */
-export function monthStartDate(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}-01T00:00:00Z`;
-}
